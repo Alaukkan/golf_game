@@ -1,4 +1,4 @@
-# golf-game
+# golf_game
 
 **WORK IN PROGRESS**
 
