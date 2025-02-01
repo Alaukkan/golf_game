@@ -4,7 +4,6 @@ import math
 
 import scripts.definitions as defs
 from scripts.entities import Player
-from scripts.entities import Ball
 from scripts.map import Map
 from scripts.clubs import clubs
 from scripts.courses import courses
@@ -27,29 +26,35 @@ class Game():
         self.font = pygame.font.Font("graphics/fonts/PressStart2P-vaV7.ttf", defs.FONT_SIZE)
 
         self.assets = {
+            "hole" : 1,
             "state" : defs.MAP,
             "choosing" : defs.SWINGSPEED,
             "pointer" : 0,
+            "hitting" : 0,
+            "hitting_meter" : 0,
             "images" : {
-                "sprites/ball/00" : load_image("sprites/ball/00.png"),
-                "sprites/ball/01" : load_image("sprites/ball/01.png"),
-                "sprites/ball/02" : load_image("sprites/ball/02.png"),
-                "sprites/ball/03" : load_image("sprites/ball/03.png"),
-                "sprites/ball/04" : load_image("sprites/ball/04.png"),
-                "sprites/crosshair/00" : load_image("sprites/crosshair/00.png"),
-                "sprites/UI/background" : load_image("sprites/UI/background.png"),
-                "sprites/UI/ball" : load_image("sprites/UI/ball.png"),
-                "sprites/UI/spin_marker" : load_image("sprites/UI/spin_marker.png"),
-                "sprites/UI/PT" : load_image("sprites/UI/PT.png"),
-                "sprites/UI/SW" : load_image("sprites/UI/SW.png"),
-                "sprites/UI/9I" : load_image("sprites/UI/SW.png"),
-                "sprites/UI/1W" : load_image("sprites/UI/1W.png"),
+                "ball/00" : load_image("ball/00.png"),
+                "ball/01" : load_image("ball/01.png"),
+                "ball/02" : load_image("ball/02.png"),
+                "ball/03" : load_image("ball/03.png"),
+                "ball/04" : load_image("ball/04.png"),
+                "crosshair/00" : load_image("crosshair/00.png"),
+                "UI/hit_indicator": load_image("UI/hit_indicator.png"),
+                "UI/hit_bar" : load_image("UI/hit_bar.png"),
+                "UI/background" : load_image("UI/background.png"),
+                "UI/wind_direction" : load_image("UI/wind_direction.png"),
+                "UI/ball" : load_image("UI/ball.png"),
+                "UI/spin_marker" : load_image("UI/spin_marker.png"),
+                "UI/PT" : load_image("UI/PT.png"),
+                "UI/SW" : load_image("UI/SW.png"),
+                "UI/9I" : load_image("UI/SW.png"),
+                "UI/1W" : load_image("UI/1W.png"),
+                
             }
         }
-
         for i in range(8):
             for j in range(1,5):
-                self.assets["images"][f"green_arrows/{i}{j}"] = load_image(f"sprites/courses/green_arrows/{i}{j}.png")
+                self.assets["images"][f"green_arrows/{i}{j}"] = load_image(f"courses/green_arrows/{i}{j}.png")
 
         self.map = Map(self, courses["01"])
         self.player = Player(self, ["PT", "SW", "9I", "3I", "1W"])
@@ -69,10 +74,14 @@ class Game():
 
     def check_input_map(self, event):
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                pygame.quit()
+                sys.exit()
             if event.key == pygame.K_LEFT:
                 self.player.turn_left = True
             if event.key == pygame.K_RIGHT:
                 self.player.turn_right = True
+                
             if event.key == pygame.K_UP:
                 if self.assets["choosing"] == defs.SWINGSPEED:
                     self.assets["pointer"] = min(self.assets["pointer"] + 1, len(defs.SWINGSPEED_OPTIONS) - 1)
@@ -93,9 +102,9 @@ class Game():
                 self.assets["choosing"] = max(self.assets["choosing"] - 1, 0)
 
             if event.key == pygame.K_c:
-                if self.assets["choosing"] == defs.SPIN:
+                if self.assets["choosing"] == defs.SPIN or (self.assets["choosing"] == defs.CLUB and self.player.ball.on_green):
                     self.assets["choosing"] = 0
-                    self.player.hit_ball()
+                    self.assets["state"] = defs.HITTING
                 else:
                     self.assets["choosing"] += 1
 
@@ -111,26 +120,56 @@ class Game():
                 self.assets["choosing"] = 0
                 self.assets["pointer"] = 0
                 self.assets["state"] = defs.MAP
-                pass
-            if event.key == pygame.K_c:
-                self.player.hit_ball()
-                pass
-    
-    def render_ui(self):
-        #for i in range(2):
-            #self.ui_display.blit(self.assets["images"]["sprites/UI/background"], (defs.ICON_BACKGROUND_POS[0], defs.ICON_BACKGROUND_POS[1] + int(defs.ICON_BACKGROUND_POS[1] * 3.2 * i)))
 
+            if event.key == pygame.K_c:
+                self.assets["hitting"] += 1
+                if self.assets["hitting"] == 2:
+                    self.player.backswing = self.assets["hitting_meter"] / defs.MAX_BACKSWING
+                elif self.assets["hitting"] == 3:
+                    self.player.ball.spin = -math.radians(self.assets["hitting_meter"])
+                    self.player.hit_ball()
+                    self.assets["state"] = defs.MAP
+                
+    def render_ui(self):
+        # render background "boxes"
+        pos = list(defs.ICON_BACKGROUND_POS)    
+        img = pygame.transform.scale(self.assets["images"]["UI/background"], (defs.UI_RESOLUTION[0] - 4, (defs.UI_RESOLUTION[0] - 4) * 0.65))
+        for i in range(4):
+            self.ui_display.blit(img, pos)
+            pos[1] += (defs.UI_RESOLUTION[0] - 4) * 0.65 + 1
+        img = pygame.transform.scale(self.assets["images"]["UI/background"], (defs.UI_RESOLUTION[0] - 4, defs.UI_RESOLUTION[0] - 4))
+        self.ui_display.blit(img, pos)
+
+        # render distance to pin
         text = (f"{int(self.player.ball.distance_from_pin())}m")
         distance = self.font.render(text, False, (255, 255, 255)) 
         self.ui_display.blit(distance, defs.DISTANCE_LEFT_TEXT_POS)
 
+        # render wind direction
+        if self.map.wind[1] > 0:
+            wind_direction = pygame.transform.rotate(self.assets["images"]["UI/wind_direction"], math.degrees(self.map.wind[0]))
+            self.ui_display.blit(wind_direction, defs.WIND_DIRECTION_POS)
+
+        # render windspeed
+        text = (f"{int(self.map.wind[1])}m/s")
+        distance = self.font.render(text, False, (255, 255, 255)) 
+        self.ui_display.blit(distance, defs.WIND_TEXT_POS)
+
+        # render player stroke count
+        for i in range(len(self.players)):
+            text = (f"P{i + 1}:{' ' * (1 - self.players[i].strokes % 10)}{self.players[i].strokes}")
+            strokes = self.font.render(text, False, (255, 255, 255)) 
+            self.ui_display.blit(strokes, (defs.PLAYER_STROKES_POS[0], defs.PLAYER_STROKES_POS[1] + 10 * i))
+
+        # render swingspeed options
         if self.assets["choosing"] == defs.SWINGSPEED:
             for i in range(len(defs.SWINGSPEED_OPTIONS)):
                 option = self.font.render(defs.SWINGSPEED_OPTIONS[i][0], False, (255, 255, 255)) 
                 self.ui_display.blit(option, (defs.SWINGSPEED_OPTIONS_POS[0], defs.SWINGSPEED_OPTIONS_POS[1] - (defs.FONT_SIZE + 1) * i))
             pointer = self.font.render(">", False, (255, 255, 255))
             self.ui_display.blit(pointer, (defs.SWINGSPEED_OPTIONS_POS[0] - defs.FONT_SIZE, defs.SWINGSPEED_OPTIONS_POS[1] - (defs.FONT_SIZE + 1) * self.assets["pointer"]))
-
+        
+        # render club options
         elif self.assets["choosing"] == defs.CLUB:
             text = (f"{'<' if self.player.club != 0 else ' '}{self.player.clubs[self.player.club]}"
                     f"{'>' if self.player.club < len(self.player.clubs) - 1 and not self.player.ball.on_green else ' '}")
@@ -145,7 +184,11 @@ class Game():
         elif self.assets["choosing"] == defs.SPIN:
             pass
 
-
+    def ball_in_hole(self):
+        self.assets["hole"] += 1
+        self.map = Map(self, courses[f"{self.assets['hole']:2}"])
+        self.player.new_ball()
+        self.player.strokes = 0
 
     def run(self):
         counter = 0
@@ -162,18 +205,18 @@ class Game():
                         f"distance from pin: {self.player.ball.distance_from_pin():.2f}\n"
                         f"wind: {self.map.wind[0]}   {self.map.wind[1]} m/s\n")
 
-            self.offset = (self.player.ball.pos_x + defs.GAME_RESOLUTION[0] / 2, self.player.ball.pos_z + defs.GAME_RESOLUTION[1] / 2)
+            self.offset = [self.player.ball.pos_x + defs.GAME_RESOLUTION[0] / 2, self.player.ball.pos_z + defs.GAME_RESOLUTION[1] / 2]
 
-            self.map.render(self.display, self.offset, self.assets["state"])
+            self.map.render(self.display, self.offset)
 
             self.player.update()
             self.player.ball.update()
 
             self.map.render_map_objects(self.display, self.offset)
 
-            self.player.ball.render(self.display, (defs.GAME_RESOLUTION[0] / 2, defs.GAME_RESOLUTION[1] / 2))
+            self.player.ball.render(self.display, [defs.GAME_RESOLUTION[0] / 2, defs.GAME_RESOLUTION[1] / 2])
 
-            self.player.render(self.display, (defs.GAME_RESOLUTION[0] / 2, defs.GAME_RESOLUTION[1] / 2))
+            self.player.render(self.display, self.offset)
 
             self.render_ui()
 
@@ -187,4 +230,3 @@ class Game():
 
 Game().run()
     
-            
