@@ -86,7 +86,6 @@ class Player():
     def hit_ball(self):
         self.overswung = False
         self.strokes += 1
-        self.total_strokes += 1
         self.game.assets["hitting"] = 0
         self.game.assets["hitting_meter"] = 0
 
@@ -136,7 +135,7 @@ class Ball():
         self.shadow_img = self.game.assets["images"]["ball/00"]
 
     def render(self, surf, offset):
-        ball_height = - self.pos_y * math.cos(math.radians(defs.VIEWING_ANGLE))
+        ball_height = - self.pos_y * math.cos(math.radians(defs.VIEWING_ANGLE)) * 3
 
         if self.on_green:
             offset = (offset[0] + int(defs.GREEN_CAM_SCALE * (-self.pos_x - self.game.map.green[0])), offset[1] + int(defs.GREEN_CAM_SCALE * (-self.pos_z - self.game.map.green[1])))
@@ -300,6 +299,7 @@ class Ball():
         if vel_mgn_3d == 0:
             # check OB
             if self.last_surface == "OB":
+                self.game.player.strokes += 1
                 self.pos_x = self.last_pos[0]
                 self.pos_z = self.last_pos[1]
             

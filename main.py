@@ -42,12 +42,15 @@ class Game():
                 "UI/hit_indicator": load_image("UI/hit_indicator.png"),
                 "UI/hit_bar" : load_image("UI/hit_bar.png"),
                 "UI/background" : load_image("UI/background.png"),
+                "UI/distance_left" : load_image("UI/distance_left.png"),
+                "UI/shot_distance" : load_image("UI/shot_distance.png"),
                 "UI/wind_direction" : load_image("UI/wind_direction.png"),
                 "UI/ball" : load_image("UI/ball.png"),
                 "UI/spin_marker" : load_image("UI/spin_marker.png"),
                 "UI/PT" : load_image("UI/PT.png"),
                 "UI/SW" : load_image("UI/SW.png"),
                 "UI/9I" : load_image("UI/SW.png"),
+                "UI/3I" : load_image("UI/SW.png"),
                 "UI/1W" : load_image("UI/1W.png"),
                 
             }
@@ -140,10 +143,29 @@ class Game():
         img = pygame.transform.scale(self.assets["images"]["UI/background"], (defs.UI_RESOLUTION[0] - 4, defs.UI_RESOLUTION[0] - 4))
         self.ui_display.blit(img, pos)
 
-        # render distance to pin
-        text = (f"{int(self.player.ball.distance_from_pin())}m")
+        # render hole info
+        text = (f"H:{self.assets['hole']:02}")
         distance = self.font.render(text, False, (255, 255, 255)) 
-        self.ui_display.blit(distance, defs.DISTANCE_LEFT_TEXT_POS)
+        self.ui_display.blit(distance, defs.HOLE_NUMBER_POS)
+        text = (f"{self.map.length:3}m")
+        distance = self.font.render(text, False, (255, 255, 255)) 
+        self.ui_display.blit(distance, defs.HOLE_INFO_POS)
+
+        # render shot distance
+        if self.player.ball.is_moving:
+            self.ui_display.blit(self.assets["images"]["UI/shot_distance"], defs.DISTANCE_IMG_POS)
+
+            text = (f"{int(math.sqrt((self.player.ball.pos_x - self.player.ball.last_pos[0]) ** 2 + (self.player.ball.pos_z - self.player.ball.last_pos[1]) ** 2)):3}m")
+            distance = self.font.render(text, False, (255, 255, 255)) 
+            self.ui_display.blit(distance, defs.DISTANCE_TEXT_POS)
+
+        # render distance to pin
+        else:
+            self.ui_display.blit(self.assets["images"]["UI/distance_left"], defs.DISTANCE_IMG_POS)
+
+            text = (f"{int(self.player.ball.distance_from_pin()):3}m")
+            distance = self.font.render(text, False, (255, 255, 255)) 
+            self.ui_display.blit(distance, defs.DISTANCE_TEXT_POS)
 
         # render wind direction
         if self.map.wind[1] > 0:
@@ -157,7 +179,7 @@ class Game():
 
         # render player stroke count
         for i in range(len(self.players)):
-            text = (f"P{i + 1}:{' ' * (1 - self.players[i].strokes % 10)}{self.players[i].strokes}")
+            text = (f"P{i + 1}:{self.players[i].strokes:2}")
             strokes = self.font.render(text, False, (255, 255, 255)) 
             self.ui_display.blit(strokes, (defs.PLAYER_STROKES_POS[0], defs.PLAYER_STROKES_POS[1] + 10 * i))
 
@@ -166,18 +188,25 @@ class Game():
             for i in range(len(defs.SWINGSPEED_OPTIONS)):
                 option = self.font.render(defs.SWINGSPEED_OPTIONS[i][0], False, (255, 255, 255)) 
                 self.ui_display.blit(option, (defs.SWINGSPEED_OPTIONS_POS[0], defs.SWINGSPEED_OPTIONS_POS[1] - (defs.FONT_SIZE + 1) * i))
+            
+            club_distance = self.font.render("SWING", False, (255, 255, 255)) 
+            self.ui_display.blit(club_distance, (defs.SWINGSPEED_OPTIONS_POS[0] - defs.FONT_SIZE, defs.SWINGSPEED_OPTIONS_POS[1] - (defs.FONT_SIZE + 2) * (i + 1)))
+
             pointer = self.font.render(">", False, (255, 255, 255))
             self.ui_display.blit(pointer, (defs.SWINGSPEED_OPTIONS_POS[0] - defs.FONT_SIZE, defs.SWINGSPEED_OPTIONS_POS[1] - (defs.FONT_SIZE + 1) * self.assets["pointer"]))
         
         # render club options
         elif self.assets["choosing"] == defs.CLUB:
+            img = self.assets["images"][f"UI/{self.player.clubs[self.player.club]}"]
+            self.ui_display.blit(img, defs.CLUB_IMG_POS)
+
             text = (f"{'<' if self.player.club != 0 else ' '}{self.player.clubs[self.player.club]}"
                     f"{'>' if self.player.club < len(self.player.clubs) - 1 and not self.player.ball.on_green else ' '}")
-            club = self.font.render(text, False, (255, 255, 255)) 
+            club = self.font.render(text, False, (255, 255, 255))
             self.ui_display.blit(club, defs.CLUB_TEXT_POS)
 
             club = clubs[self.player.clubs[self.player.club]]
-            text = (f"{int(club['distance'] * self.player.swingspeed)}m")
+            text = (f"{int(club['distance'] * self.player.swingspeed):3}m")
             club_distance = self.font.render(text, False, (255, 255, 255)) 
             self.ui_display.blit(club_distance, defs.CLUB_DISTANCE_POS)
         
@@ -185,10 +214,13 @@ class Game():
             pass
 
     def ball_in_hole(self):
+        self.player.total_strokes = 0
+        self.player.strokes = 0
+
         self.assets["hole"] += 1
         self.map = Map(self, courses[f"{self.assets['hole']:2}"])
         self.player.new_ball()
-        self.player.strokes = 0
+        
 
     def run(self):
         counter = 0
@@ -222,7 +254,7 @@ class Game():
 
             self.check_input()
 
-            self.screen.blit(pygame.transform.scale(self.display, (defs.GAME_RESOLUTION[0] * defs.PIXEL_SIZE, defs.GAME_RESOLUTION[1] * defs.PIXEL_SIZE)), (defs.UI_RESOLUTION[0] * defs.PIXEL_SIZE, 0))
+            self.screen.blit(pygame.transform.scale(self.display, (defs.GAME_RESOLUTION[0] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1], defs.GAME_RESOLUTION[1] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1])), (defs.UI_RESOLUTION[0] * defs.PIXEL_SIZE, 0))
             self.screen.blit(pygame.transform.scale(self.ui_display, (defs.UI_RESOLUTION[0] * defs.PIXEL_SIZE, defs.UI_RESOLUTION[1] * defs.PIXEL_SIZE)), (0, 0))
 
             pygame.display.update()
