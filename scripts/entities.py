@@ -66,12 +66,12 @@ class Player():
 
                 hitting_meter_width = self.backswing * defs.MAX_BACKSWING
 
-            surf.blit(self.game.assets["images"]["UI/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 2, defs.HITTING_METER_POS[1] - 3))
+            surf.blit(self.game.assets["images"]["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 2, defs.HITTING_METER_POS[1] - 3))
 
             hitting_meter = pygame.Rect(defs.HITTING_METER_POS[0] - hitting_meter_width, defs.HITTING_METER_POS[1], hitting_meter_width, defs.HITTING_METER_HEIGHT)
             pygame.draw.rect(surf, defs.HITTING_METER_COLOR, hitting_meter)
 
-            hitting_indicator = self.game.assets["images"]["UI/hit_indicator"]
+            hitting_indicator = self.game.assets["images"]["HUD/hit_indicator"]
             surf.blit(hitting_indicator, (defs.HITTING_METER_POS[0] - self.game.assets["hitting_meter"] - 1, defs.HITTING_METER_POS[1] - 1))
 
 
@@ -90,14 +90,15 @@ class Player():
         self.game.assets["hitting_meter"] = 0
 
         club = clubs[self.clubs[self.club]]
-        self.ball.last_pos = [self.ball.pos_x, self.ball.pos_z]
-
         surface = self.ball.last_surface
         power = club["power"] * defs.SURFACE_SWING_AFFECT[surface][club["type"]] * self.swingspeed * self.backswing
 
         self.ball.vel_x = math.sin(self.direction) * math.cos(club["angle"]) * power
         self.ball.vel_y = math.sin(club["angle"]) * power
         self.ball.vel_z = math.cos(self.direction) * math.cos(club["angle"]) * power
+
+        self.ball.last_pos = [self.ball.pos_x, self.ball.pos_z]
+        self.ball.spin = self.spin * self.swingspeed * self.backswing * math.sin(club["angle"])
         self.ball.direction = self.direction
 
     def set_new_direction(self):
@@ -181,6 +182,7 @@ class Ball():
                 else:
                     self.apply_green_gradient_roll(velocity_magnitude_2d)
 
+            self.apply_backspin()
             self.apply_rolling_resistance(velocity_magnitude_2d)
 
         self.check_movement(velocity_magnitude_3d)
@@ -221,8 +223,9 @@ class Ball():
                 energy = 1/2 * self.mass * vel_mgn_2d**2
                 energy *= defs.SURFACE_HARDNESS[self.last_surface]
 
-                self.vel_x = math.sqrt(2 * energy / self.mass) * self.vel_x / vel_mgn_2d
-                self.vel_z = math.sqrt(2 * energy / self.mass) * self.vel_z / vel_mgn_2d
+                self.vel_x = math.sqrt(2 * energy / self.mass) * self.vel_x / vel_mgn_2d if vel_mgn_2d != 0 else 0
+                self.vel_z = math.sqrt(2 * energy / self.mass) * self.vel_z / vel_mgn_2d if vel_mgn_2d != 0 else 0
+                self.apply_backspin(magnitude=3)
             else:
                 # prevent jitter
                 self.vel_y = 0
@@ -275,6 +278,19 @@ class Ball():
 
         self.vel_x += math.sin(roll_direction) * roll_acceleration / defs.FRAME_RATE
         self.vel_z += math.cos(roll_direction) * roll_acceleration / defs.FRAME_RATE 
+
+    
+    def apply_backspin(self, magnitude=1):
+        if self.spin == 0:
+            return
+
+        self.vel_x -= math.sin(self.direction + math.pi) * 10 * self.spin * magnitude / defs.FRAME_RATE
+        self.vel_z -= math.cos(self.direction + math.pi) * 10 * self.spin * magnitude / defs.FRAME_RATE
+
+        if self.spin < 0:
+            self.spin = min(0, self.spin + 5 * magnitude / defs.FRAME_RATE)
+        elif self.spin > 0:
+            self.spin = max(0, self.spin - 5 * magnitude / defs.FRAME_RATE)
 
 
     def apply_rolling_resistance(self, vel_mgn_2d):
