@@ -19,6 +19,7 @@ class Map():
         self.hole_img = load_image(f"courses/flag/02.png")
         self.green_img = pygame.transform.scale(load_image(f"courses/greens/{course['number']}.png"), defs.GAME_RESOLUTION)
         self.length = course["length"]
+        self.par = course["par"]
         self.tee = course["tee"]
         self.pin = course["pin"][random.randint(0, len(course["pin"]) - 1)]
         self.green = course["green"]

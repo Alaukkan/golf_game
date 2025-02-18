@@ -45,11 +45,14 @@ class Player():
         surf.blit(self.crosshair, (render_offset[0] - defs.CROSSHAIR_DISTANCE * math.sin(self.direction), render_offset[1] - defs.CROSSHAIR_DISTANCE * math.cos(self.direction)))
 
         if self.game.assets["hitting"] != 0:
-            if self.game.assets["hitting_meter"] < 0:
+            if self.game.assets["hitting_meter"] < -30:
                 self.miss_ball()
                 return
             elif self.game.assets["hitting"] == 1:
                 if self.game.assets["hitting_meter"] > defs.MAX_BACKSWING or self.overswung:
+                    if self.game.assets["hitting_meter"] < 0:
+                        self.miss_ball()
+                        return
                     self.overswung = True
                     self.game.assets["hitting_meter"] -= self.swingspeed * 100 / defs.FRAME_RATE
                 else:
@@ -66,7 +69,7 @@ class Player():
 
                 hitting_meter_width = self.backswing * defs.MAX_BACKSWING
 
-            surf.blit(self.game.assets["images"]["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 2, defs.HITTING_METER_POS[1] - 3))
+            surf.blit(self.game.assets["images"]["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 8, defs.HITTING_METER_POS[1] - 3))
 
             hitting_meter = pygame.Rect(defs.HITTING_METER_POS[0] - hitting_meter_width, defs.HITTING_METER_POS[1], hitting_meter_width, defs.HITTING_METER_HEIGHT)
             pygame.draw.rect(surf, defs.HITTING_METER_COLOR, hitting_meter)
@@ -81,6 +84,7 @@ class Player():
         self.total_strokes += 1
         self.game.assets["hitting"] = 0
         self.game.assets["hitting_meter"] = 0
+        self.game.assets["state"] = defs.MAP
 
 
     def hit_ball(self):
@@ -126,6 +130,7 @@ class Ball():
     img_offset = (-3, -4)
     on_green = False
     is_moving = False
+    in_air = False
 
     def __init__(self, game, player, pos):
         self.game = game
@@ -179,6 +184,7 @@ class Ball():
                 # check if ball is in hole: slow enough and close enough to the pin (hole):
                 if velocity_magnitude_2d < 2 and self.distance_from_pin() < defs.HOLE_RADIUS:
                     self.game.ball_in_hole()
+                    return
                 else:
                     self.apply_green_gradient_roll(velocity_magnitude_2d)
 
