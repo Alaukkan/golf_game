@@ -71,7 +71,7 @@ class Map():
     def render_map_objects(self, surf, offset):
         if self.game.player.ball.on_green:
             render_offset = (int(round(defs.GAME_RESOLUTION[0] / 2 + defs.GREEN_CAM_SCALE * (self.pin[0] - self.green[0]) + self.hole_offset[0])), 
-                             int(round(defs.GAME_RESOLUTION[0] / 2 + defs.GREEN_CAM_SCALE * (self.pin[1] - self.green[1]) + self.hole_offset[1])))
+                             int(round(defs.GAME_RESOLUTION[1] / 2 + defs.GREEN_CAM_SCALE * (self.pin[1] - self.green[1]) + self.hole_offset[1])))
             surf.blit(self.hole_img, render_offset)
         else:
             render_offset = (offset[0] + int(round(self.pin[0])) + self.flag_offset[0], offset[1] + int(round(self.pin[1])) + self.flag_offset[1])

@@ -7,7 +7,7 @@ from scripts.entities import Player
 from scripts.map import Map
 from scripts.clubs import clubs
 from scripts.courses import courses
-from scripts.utils import load_image
+from scripts.utils import load_image, load_images, Animation
 
 # testing git
 class Game():
@@ -32,6 +32,7 @@ class Game():
             "pointer" : 0,
             "hitting" : 0,
             "hitting_meter" : 0,
+            "curr_animation" : None,
             "images" : {
                 "ball/00" : load_image("ball/00.png"),
                 "ball/01" : load_image("ball/01.png"),
@@ -52,6 +53,8 @@ class Game():
                 "HUD/9I" : load_image("HUD/SW.png"),
                 "HUD/3I" : load_image("HUD/SW.png"),
                 "HUD/1W" : load_image("HUD/1W.png"),
+                "birdie" : Animation(load_images("animations/birdie"), img_dur=3, loop=False),
+                "par" : Animation(load_images("animations/par"), img_dur=3, loop=False)
                 
             }
         }
@@ -251,12 +254,25 @@ class Game():
 
 
     def ball_in_hole(self):
-        self.player.total_strokes = 0
-        self.player.strokes = 0
-
-        self.assets["hole"] += 1
-        self.map = Map(self, courses[f"{self.assets['hole']:02}"])
-        self.player.new_ball()
+        result = self.player.strokes - int(self.map.par)
+        if self.player.strokes == 1:
+            self.assets["curr_animation"] = self.assets["images"]["birdie"]
+        elif result == -2:
+            self.assets["curr_animation"] = self.assets["images"]["birdie"]
+        elif result == -1:
+            self.assets["curr_animation"] = self.assets["images"]["birdie"]
+        elif result == 0:
+            self.assets["curr_animation"] = self.assets["images"]["par"]
+        elif result == 1:
+            self.assets["curr_animation"] = self.assets["images"]["par"]
+        elif result == 2:
+            self.assets["curr_animation"] = self.assets["images"]["par"]
+        elif result == 3:
+            self.assets["curr_animation"] = self.assets["images"]["par"]
+        elif result == 4:
+            self.assets["curr_animation"] = self.assets["images"]["par"]
+        
+        self.player.total_strokes += self.player.strokes
         
 
     def run(self):
@@ -266,7 +282,7 @@ class Game():
             self.hud_display.fill((0, 0, 0))
 
             counter = (counter + 1)
-            if counter // 30 == 1:
+            if counter // defs.FRAME_RATE == 1:
                 counter = 0
                 print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
                         f"ball position:     {self.player.ball.pos_x:.2f} {self.player.ball.pos_y:.2f} {self.player.ball.pos_z:.2f}\n"
@@ -288,6 +304,18 @@ class Game():
             self.player.render(self.display, self.offset)
 
             self.render_hud()
+
+            if self.assets["curr_animation"] != None:
+                self.display.blit(self.assets["curr_animation"].img(), defs.ANIMATION_POS)
+                self.assets["curr_animation"].update()
+
+                if self.assets["curr_animation"].done:
+                    self.assets["curr_animation"] = None
+
+                    self.player.strokes = 0
+                    self.assets["hole"] += 1
+                    self.map = Map(self, courses[f"{self.assets['hole']:02}"])
+                    self.player.new_ball()
 
             self.check_input()
 

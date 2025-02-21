@@ -10,6 +10,7 @@ class Player():
     direction = 0
     backswing = 0
     swingspeed = 1
+    render_delay = 0
     overswung = False
     turn_right = False
     turn_left = False
@@ -34,15 +35,16 @@ class Player():
         self.direction += 0.02 if self.turn_left else 0
 
     def render(self, surf, offset):
-        if self.ball.is_moving:
-            return
+        self.render_delay = max(self.render_delay - 1, 0)
+
         if self.ball.on_green:
             render_offset = (defs.GAME_RESOLUTION[0] / 2 + int(defs.GREEN_CAM_SCALE * (-self.ball.pos_x - self.game.map.green[0])) + self.crosshair_offset[0],
                              defs.GAME_RESOLUTION[1] / 2 + int(defs.GREEN_CAM_SCALE * (-self.ball.pos_z - self.game.map.green[1])) + self.crosshair_offset[0])
         else: 
             render_offset = (offset[0] + self.crosshair_offset[0], 
                              offset[1] + self.crosshair_offset[1])
-        surf.blit(self.crosshair, (render_offset[0] - defs.CROSSHAIR_DISTANCE * math.sin(self.direction), render_offset[1] - defs.CROSSHAIR_DISTANCE * math.cos(self.direction)))
+        if not self.ball.is_moving:
+            surf.blit(self.crosshair, (render_offset[0] - defs.CROSSHAIR_DISTANCE * math.sin(self.direction), render_offset[1] - defs.CROSSHAIR_DISTANCE * math.cos(self.direction)))
 
         if self.game.assets["hitting"] != 0:
             if self.game.assets["hitting_meter"] < -30:
@@ -79,6 +81,7 @@ class Player():
 
 
     def miss_ball(self):
+        self.render_delay = defs.HITTING_METER_DELAY
         self.overswung = False
         self.strokes += 1
         self.total_strokes += 1
@@ -88,14 +91,17 @@ class Player():
 
 
     def hit_ball(self):
+        self.render_delay = defs.HITTING_METER_DELAY
         self.overswung = False
         self.strokes += 1
         self.game.assets["hitting"] = 0
-        self.game.assets["hitting_meter"] = 0
 
         club = clubs[self.clubs[self.club]]
         surface = self.ball.last_surface
         power = club["power"] * defs.SURFACE_SWING_AFFECT[surface][club["type"]] * self.swingspeed * self.backswing
+
+        self.ball.side_spin = self.game.assets["hitting_meter"] * math.sqrt(power / defs.SURFACE_SWING_AFFECT[surface][club["type"]]) * 0.01
+        self.game.assets["hitting_meter"] = 0
 
         self.ball.vel_x = math.sin(self.direction) * math.cos(club["angle"]) * power
         self.ball.vel_y = math.sin(club["angle"]) * power
@@ -125,12 +131,14 @@ class Ball():
     vel_z = 0
     spin = 0
     direction = 0
+    side_spin = 0
     backspin = 0
     image = ""
     img_offset = (-3, -4)
     on_green = False
     is_moving = False
     in_air = False
+    in_hole = False
 
     def __init__(self, game, player, pos):
         self.game = game
@@ -141,6 +149,9 @@ class Ball():
         self.shadow_img = self.game.assets["images"]["ball/00"]
 
     def render(self, surf, offset):
+        if self.in_hole:
+            return
+        
         ball_height = - self.pos_y * math.cos(math.radians(defs.VIEWING_ANGLE)) * 3
 
         if self.on_green:
@@ -167,6 +178,10 @@ class Ball():
 
             
     def update(self):
+
+        if self.in_hole:
+            return
+        
         velocity_magnitude_2d = math.sqrt(self.vel_x**2 + self.vel_z**2)
         velocity_magnitude_3d = math.sqrt(self.vel_x**2 + self.vel_y**2 + self.vel_z**2)
 
@@ -175,6 +190,7 @@ class Ball():
         self.check_ground_collision(velocity_magnitude_2d)
 
         if self.in_air:
+            self.apply_side_spin()
             self.apply_drag(velocity_magnitude_3d)
             self.apply_gravity()
             self.apply_wind()
@@ -182,13 +198,14 @@ class Ball():
         else:
             if self.on_green:
                 # check if ball is in hole: slow enough and close enough to the pin (hole):
-                if velocity_magnitude_2d < 2 and self.distance_from_pin() < defs.HOLE_RADIUS:
+                if velocity_magnitude_2d < 3 and self.distance_from_pin() < defs.HOLE_RADIUS:
                     self.game.ball_in_hole()
+                    self.in_hole = True
                     return
                 else:
                     self.apply_green_gradient_roll(velocity_magnitude_2d)
 
-            self.apply_backspin()
+            self.apply_backspin(magnitude=3)
             self.apply_rolling_resistance(velocity_magnitude_2d)
 
         self.check_movement(velocity_magnitude_3d)
@@ -210,6 +227,9 @@ class Ball():
 
         # ground collision check
         if self.pos_y == 0:
+
+            self.side_spin = 0
+
             if surface == "water":
                 self.pos_x = self.last_land_pos[0]
                 self.pos_z = self.last_land_pos[1]
@@ -235,6 +255,11 @@ class Ball():
             else:
                 # prevent jitter
                 self.vel_y = 0
+
+
+    def apply_side_spin(self):
+        self.vel_x -= self.side_spin / defs.FRAME_RATE
+        self.vel_z += self.side_spin / defs.FRAME_RATE if self.vel_z < 0 else -self.side_spin / defs.FRAME_RATE
 
 
     def apply_drag(self, vel_mgn_3d):
@@ -294,9 +319,9 @@ class Ball():
         self.vel_z -= math.cos(self.direction + math.pi) * 10 * self.spin * magnitude / defs.FRAME_RATE
 
         if self.spin < 0:
-            self.spin = min(0, self.spin + 5 * magnitude / defs.FRAME_RATE)
+            self.spin = min(0, self.spin + magnitude / defs.FRAME_RATE)
         elif self.spin > 0:
-            self.spin = max(0, self.spin - 5 * magnitude / defs.FRAME_RATE)
+            self.spin = max(0, self.spin - magnitude / defs.FRAME_RATE)
 
 
     def apply_rolling_resistance(self, vel_mgn_2d):
@@ -306,15 +331,17 @@ class Ball():
             self.vel_z = 0 
             return
         # apply rolling resistance
+        new_vel_mgn_2d = vel_mgn_2d * defs.SURFACE_ROLLING_RESISTANCE[self.last_surface] + 1
         if (self.vel_x > 0):
-            self.vel_x = max(self.vel_x - (self.vel_x * vel_mgn_2d + 2) * defs.SURFACE_ROLLING_RESISTANCE[self.last_surface] / defs.FRAME_RATE, 0)
+            self.vel_x = max(self.vel_x - (self.vel_x * math.sqrt(new_vel_mgn_2d)) * defs.BALL_ROLLING_RESISTANCE / defs.FRAME_RATE, 0)
         else:
-            self.vel_x = min(self.vel_x - (self.vel_x * vel_mgn_2d - 2) * defs.SURFACE_ROLLING_RESISTANCE[self.last_surface] / defs.FRAME_RATE, 0)
+            self.vel_x = min(self.vel_x - (self.vel_x * math.sqrt(new_vel_mgn_2d)) * defs.BALL_ROLLING_RESISTANCE / defs.FRAME_RATE, 0)
         
         if (self.vel_z > 0):
-            self.vel_z = max(self.vel_z - (self.vel_z * vel_mgn_2d + 2) * defs.SURFACE_ROLLING_RESISTANCE[self.last_surface] / defs.FRAME_RATE, 0)
+            self.vel_z = max(self.vel_z - (self.vel_z * math.sqrt(new_vel_mgn_2d)) * defs.BALL_ROLLING_RESISTANCE / defs.FRAME_RATE, 0)
         else:
-            self.vel_z = min(self.vel_z - (self.vel_z * vel_mgn_2d - 2) * defs.SURFACE_ROLLING_RESISTANCE[self.last_surface] / defs.FRAME_RATE, 0)
+            self.vel_z = min(self.vel_z - (self.vel_z * math.sqrt(new_vel_mgn_2d)) * defs.BALL_ROLLING_RESISTANCE / defs.FRAME_RATE, 0)
+
 
     def check_movement(self, vel_mgn_3d):
         # check if ball is stationary
