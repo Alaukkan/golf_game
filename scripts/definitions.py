@@ -82,7 +82,7 @@ SURFACE_HARDNESS = {
 }
 SURFACE_ROLLING_RESISTANCE = {
     "water" : 1,
-    "sand" : 0.4,
+    "sand" : 0.8,
     "green" : 0.05,
     "fairway" : 0.2,
     "rough" : 0.15,

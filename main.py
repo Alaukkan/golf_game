@@ -56,8 +56,20 @@ class Game():
                 "birdie" : Animation(load_images("animations/birdie"), img_dur=3, loop=False),
                 "par" : Animation(load_images("animations/par"), img_dur=3, loop=False)
                 
+            },
+            "sfx" : {
+                "hit_ball" : pygame.mixer.Sound("sfx/hit.wav"),
+                "green" : pygame.mixer.Sound("sfx/green.wav"),
+                "sand" : pygame.mixer.Sound("sfx/sand.wav"),
+                "fairway" : pygame.mixer.Sound("sfx/fairway.wav"),
+                "rough" : pygame.mixer.Sound("sfx/rough.wav"),
+                "OB" : pygame.mixer.Sound("sfx/rough.wav"),
+                "hole" : pygame.mixer.Sound("sfx/in_hole.wav")
             }
         }
+
+        self.assets["sfx"]["hole"].set_volume(0.5)
+        
         for i in range(8):
             for j in range(1,5):
                 self.assets["images"][f"green_arrows/{i}{j}"] = load_image(f"courses/green_arrows/{i}{j}.png")
@@ -254,6 +266,8 @@ class Game():
 
 
     def ball_in_hole(self):
+
+        self.assets["sfx"]["hole"].play()
         result = self.player.strokes - int(self.map.par)
         if self.player.strokes == 1:
             self.assets["curr_animation"] = self.assets["images"]["birdie"]

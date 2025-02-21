@@ -91,6 +91,8 @@ class Player():
 
 
     def hit_ball(self):
+        self.game.assets["sfx"]["hit_ball"].set_volume(max(self.swingspeed * self.backswing - 0.5, 0.1))
+        self.game.assets["sfx"]["hit_ball"].play()
         self.render_delay = defs.HITTING_METER_DELAY
         self.overswung = False
         self.strokes += 1
@@ -217,8 +219,6 @@ class Ball():
         self.pos_y = max(self.pos_y + self.vel_y / defs.FRAME_RATE, 0)
         self.pos_z += self.vel_z / defs.FRAME_RATE
 
-        self.in_air = self.pos_y > 0.05
-
 
     def check_ground_collision(self, vel_mgn_2d):
         surface = self.game.map.get_surface(self.pos_x, self.pos_z)
@@ -229,6 +229,10 @@ class Ball():
         if self.pos_y == 0:
 
             self.side_spin = 0
+
+            if self.in_air:
+                self.game.assets["sfx"][surface].set_volume(-self.vel_y / 30)
+                self.game.assets["sfx"][surface].play()
 
             if surface == "water":
                 self.pos_x = self.last_land_pos[0]
@@ -255,6 +259,8 @@ class Ball():
             else:
                 # prevent jitter
                 self.vel_y = 0
+
+        self.in_air = self.pos_y > 0.01
 
 
     def apply_side_spin(self):
@@ -296,7 +302,7 @@ class Ball():
         wind_acceleration = (defs.BALL_WIND_RESISTANCE * defs.AIR_DENSITY * self.cross_sectional_area * self.game.map.wind[1]**2) / (2 * self.mass)
         
         self.vel_x += wind_acceleration * math.sin(self.game.map.wind[0]) / defs.FRAME_RATE
-        self.vel_x += wind_acceleration * math.cos(self.game.map.wind[0]) / defs.FRAME_RATE
+        self.vel_z += wind_acceleration * math.cos(self.game.map.wind[0]) / defs.FRAME_RATE
 
 
     def apply_green_gradient_roll(self, vel_mgn_2d):
