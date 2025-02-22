@@ -68,7 +68,7 @@ class Game():
             }
         }
 
-        self.assets["sfx"]["hole"].set_volume(0.5)
+        self.assets["sfx"]["hole"].set_volume(1)
         
         for i in range(8):
             for j in range(1,5):
@@ -290,6 +290,10 @@ class Game():
         
 
     def run(self):
+        pygame.mixer.music.load('music/01.wav')
+        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.play(-1)
+
         counter = 0
         while True:
             self.display.fill((0, 0, 0))
@@ -330,6 +334,11 @@ class Game():
                     self.assets["hole"] += 1
                     self.map = Map(self, courses[f"{self.assets['hole']:02}"])
                     self.player.new_ball()
+
+            if self.assets["hitting"] != 0 or self.player.ball.is_moving:
+                pygame.mixer.music.pause()
+            else:
+                pygame.mixer.music.unpause()
 
             self.check_input()
 
