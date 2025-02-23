@@ -9,14 +9,15 @@ from scripts.clubs import clubs
 from scripts.courses import courses
 from scripts.utils import load_image, load_images, Animation
 
-# testing git
+class Menu():
+    def __init__(self):
+        pass
+
 class Game():
 
-    def __init__(self):
-        pygame.init()
-
-        pygame.display.set_caption("Golf game")
-        self.screen = pygame.display.set_mode((defs.RESOLUTION[0] * defs.PIXEL_SIZE, defs.RESOLUTION[1] * defs.PIXEL_SIZE))
+    def __init__(self, screen, no_players):
+        
+        self.screen = screen
         self.display = pygame.Surface(defs.GAME_RESOLUTION, pygame.SRCALPHA)
         self.hud_display = pygame.Surface(defs.HUD_RESOLUTION, pygame.SRCALPHA)
 
@@ -75,9 +76,12 @@ class Game():
                 self.assets["images"][f"green_arrows/{i}{j}"] = load_image(f"courses/green_arrows/{i}{j}.png")
 
         self.map = Map(self, courses["01"])
-        self.player = Player(self, ["PT", "SW", "9I", "3I", "1W"])
+
         self.players = []
-        self.players.append(self.player)
+        for i in range(no_players):
+            self.players.append(Player(self, ["PT", "SW", "9I", "3I", "1W"]))
+        
+        self.player = self.players[0]
 
     
     def check_input(self):
@@ -350,5 +354,11 @@ class Game():
             pygame.display.update()
             self.clock.tick(defs.FRAME_RATE)
 
-Game().run()
+if __name__ == "__main__":
+    pygame.init()
+
+    pygame.display.set_caption("Golf game")
+    screen = pygame.display.set_mode((defs.RESOLUTION[0] * defs.PIXEL_SIZE, defs.RESOLUTION[1] * defs.PIXEL_SIZE))
+    
+    Game(screen, 1).run()
     

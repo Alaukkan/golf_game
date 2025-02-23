@@ -47,7 +47,7 @@ class Player():
             surf.blit(self.crosshair, (render_offset[0] - defs.CROSSHAIR_DISTANCE * math.sin(self.direction), render_offset[1] - defs.CROSSHAIR_DISTANCE * math.cos(self.direction)))
 
         if self.game.assets["hitting"] != 0:
-            if self.game.assets["hitting_meter"] < -30:
+            if self.game.assets["hitting_meter"] < -55:
                 self.miss_ball()
                 return
             elif self.game.assets["hitting"] == 1:
@@ -73,11 +73,11 @@ class Player():
 
             surf.blit(self.game.assets["images"]["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 8, defs.HITTING_METER_POS[1] - 3))
 
-            hitting_meter = pygame.Rect(defs.HITTING_METER_POS[0] - hitting_meter_width, defs.HITTING_METER_POS[1], hitting_meter_width, defs.HITTING_METER_HEIGHT)
+            hitting_meter = pygame.Rect(defs.HITTING_METER_POS[0] - hitting_meter_width -5, defs.HITTING_METER_POS[1], hitting_meter_width, defs.HITTING_METER_HEIGHT)
             pygame.draw.rect(surf, defs.HITTING_METER_COLOR, hitting_meter)
 
             hitting_indicator = self.game.assets["images"]["HUD/hit_indicator"]
-            surf.blit(hitting_indicator, (defs.HITTING_METER_POS[0] - self.game.assets["hitting_meter"] - 1, defs.HITTING_METER_POS[1] - 1))
+            surf.blit(hitting_indicator, (defs.HITTING_METER_POS[0] - self.game.assets["hitting_meter"] - 6, defs.HITTING_METER_POS[1] - 1))
 
 
     def miss_ball(self):
@@ -102,7 +102,10 @@ class Player():
         surface = self.ball.last_surface
         power = club["power"] * defs.SURFACE_SWING_AFFECT[surface][club["type"]] * self.swingspeed * self.backswing
 
-        self.ball.side_spin = self.game.assets["hitting_meter"] * math.sqrt(power / defs.SURFACE_SWING_AFFECT[surface][club["type"]]) * 0.01
+        if abs(self.game.assets["hitting_meter"]) <= math.ceil(1 / self.swingspeed**2):
+            self.ball.side_spin = math.sqrt(abs(self.game.assets["hitting_meter"])) * abs(self.game.assets["hitting_meter"]) / self.game.assets["hitting_meter"] * self.swingspeed * self.backswing
+        else:
+            self.ball.side_spin = 0
         self.game.assets["hitting_meter"] = 0
 
         self.ball.vel_x = math.sin(self.direction) * math.cos(club["angle"]) * power
@@ -141,6 +144,7 @@ class Ball():
     is_moving = False
     in_air = False
     in_hole = False
+    in_sand = False
 
     def __init__(self, game, player, pos):
         self.game = game
@@ -238,6 +242,11 @@ class Ball():
                 self.pos_x = self.last_land_pos[0]
                 self.pos_z = self.last_land_pos[1]
                 self.vel_x = self.vel_y = self.vel_z = 0
+
+            elif surface == "sand" and self.vel_y > 3:
+                self.in_sand = True
+                self.vel_x = self.vel_y = self.vel_z = 0
+
             else:
                 self.last_surface = surface
                 
@@ -264,8 +273,9 @@ class Ball():
 
 
     def apply_side_spin(self):
-        self.vel_x -= self.side_spin / defs.FRAME_RATE
-        self.vel_z += self.side_spin / defs.FRAME_RATE if self.vel_z < 0 else -self.side_spin / defs.FRAME_RATE
+        direction = math.tan(self.vel_x/self.vel_z) / 2
+        self.vel_x -= math.cos(direction) * self.side_spin * defs.SIDE_SPIN_AFFECT / defs.FRAME_RATE 
+        self.vel_z -= math.sin(direction) * self.side_spin * defs.SIDE_SPIN_AFFECT / defs.FRAME_RATE
 
 
     def apply_drag(self, vel_mgn_3d):
