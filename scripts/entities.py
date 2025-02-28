@@ -10,7 +10,6 @@ class Player():
     direction = 0
     backswing = 0
     swingspeed = 1
-    render_delay = 0
     overswung = False
     turn_right = False
     turn_left = False
@@ -20,23 +19,21 @@ class Player():
     def __init__(self, game, clubs=["PT"]):
         self.game = game
         self.clubs = clubs
-        self.club = len(clubs) - 1
-        self.crosshair = self.game.assets["images"]["crosshair/00"]
         self.new_ball()
+        self.club = len(clubs) - 1
+        self.crosshair = self.game.images["crosshair/00"]
         self.set_new_direction()
         self.strokes = 0
-        self.total_strokes = 0
+        self.scorecard = []
 
     def new_ball(self):
         self.ball = Ball(self.game, self, self.game.map.tee)
 
     def update(self):
-        self.direction -= 0.02 if self.turn_right else 0
-        self.direction += 0.02 if self.turn_left else 0
+        self.direction -= 0.01 if self.turn_right else 0
+        self.direction += 0.01 if self.turn_left else 0
 
     def render(self, surf, offset):
-        self.render_delay = max(self.render_delay - 1, 0)
-
         if self.ball.on_green:
             render_offset = (defs.GAME_RESOLUTION[0] / 2 + int(defs.GREEN_CAM_SCALE * (-self.ball.pos_x - self.game.map.green[0])) + self.crosshair_offset[0],
                              defs.GAME_RESOLUTION[1] / 2 + int(defs.GREEN_CAM_SCALE * (-self.ball.pos_z - self.game.map.green[1])) + self.crosshair_offset[0])
@@ -46,11 +43,11 @@ class Player():
         if not self.ball.is_moving:
             surf.blit(self.crosshair, (render_offset[0] - defs.CROSSHAIR_DISTANCE * math.sin(self.direction), render_offset[1] - defs.CROSSHAIR_DISTANCE * math.cos(self.direction)))
 
-        if self.game.assets["hitting"] != 0:
+        if self.game.state > defs.CHOOSING_BACKSPIN and self.game.state < defs.PLAYING_ANIMATION:
             if self.game.assets["hitting_meter"] < -55:
                 self.miss_ball()
                 return
-            elif self.game.assets["hitting"] == 1:
+            elif self.game.state == defs.CHOOSING_BACKSWING:
                 if self.game.assets["hitting_meter"] > defs.MAX_BACKSWING or self.overswung:
                     if self.game.assets["hitting_meter"] < 0:
                         self.miss_ball()
@@ -62,58 +59,58 @@ class Player():
 
                 hitting_meter_width = self.game.assets["hitting_meter"]
                 
-            elif self.game.assets["hitting"] == 2:
+            elif self.game.state == defs.CHOOSING_SIDESPIN:
                 self.game.assets["hitting_meter"] -= self.swingspeed * 200 / defs.FRAME_RATE
-                if self.ball.on_green:
-                    self.hit_ball()
-                    self.game.assets["state"] = defs.MAP
-                    return
 
                 hitting_meter_width = self.backswing * defs.MAX_BACKSWING
 
-            surf.blit(self.game.assets["images"]["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 8, defs.HITTING_METER_POS[1] - 3))
+            elif self.game.state == defs.BALL_MOVING:
+                hitting_meter_width = self.backswing * defs.MAX_BACKSWING
+
+
+            surf.blit(self.game.images["HUD/hit_bar"], (defs.HITTING_METER_POS[0] - defs.MAX_BACKSWING - 8, defs.HITTING_METER_POS[1] - 3))
 
             hitting_meter = pygame.Rect(defs.HITTING_METER_POS[0] - hitting_meter_width -5, defs.HITTING_METER_POS[1], hitting_meter_width, defs.HITTING_METER_HEIGHT)
             pygame.draw.rect(surf, defs.HITTING_METER_COLOR, hitting_meter)
 
-            hitting_indicator = self.game.assets["images"]["HUD/hit_indicator"]
+            hitting_indicator = self.game.images["HUD/hit_indicator"]
             surf.blit(hitting_indicator, (defs.HITTING_METER_POS[0] - self.game.assets["hitting_meter"] - 6, defs.HITTING_METER_POS[1] - 1))
 
 
     def miss_ball(self):
-        self.render_delay = defs.HITTING_METER_DELAY
         self.overswung = False
         self.strokes += 1
-        self.total_strokes += 1
-        self.game.assets["hitting"] = 0
         self.game.assets["hitting_meter"] = 0
-        self.game.assets["state"] = defs.MAP
+        self.game.state = defs.CHOOSING_SWINGSPEED
 
 
     def hit_ball(self):
-        self.game.assets["sfx"]["hit_ball"].set_volume(max(self.swingspeed * self.backswing - 0.5, 0.1))
-        self.game.assets["sfx"]["hit_ball"].play()
-        self.render_delay = defs.HITTING_METER_DELAY
+        self.game.sfx["hit_ball"].set_volume(max(self.swingspeed * self.backswing - 0.5, 0.1))
+        self.game.sfx["hit_ball"].play()
         self.overswung = False
         self.strokes += 1
-        self.game.assets["hitting"] = 0
 
         club = clubs[self.clubs[self.club]]
         surface = self.ball.last_surface
+
         power = club["power"] * defs.SURFACE_SWING_AFFECT[surface][club["type"]] * self.swingspeed * self.backswing
 
-        if abs(self.game.assets["hitting_meter"]) <= math.ceil(1 / self.swingspeed**2):
+        if self.backswing > defs.PERFECT_BACKSWING and abs(self.game.assets["hitting_meter"]) < defs.PERFECT_SIDESPIN:
+            power *= 1.25
+            # self.game.curr_animation = perfect swing
+            # pygame play sound = perfect swing
+
+        if abs(self.game.assets["hitting_meter"]) > math.ceil(1 / self.swingspeed**2):
             self.ball.side_spin = math.sqrt(abs(self.game.assets["hitting_meter"])) * abs(self.game.assets["hitting_meter"]) / self.game.assets["hitting_meter"] * self.swingspeed * self.backswing
         else:
             self.ball.side_spin = 0
-        self.game.assets["hitting_meter"] = 0
 
         self.ball.vel_x = math.sin(self.direction) * math.cos(club["angle"]) * power
         self.ball.vel_y = math.sin(club["angle"]) * power
         self.ball.vel_z = math.cos(self.direction) * math.cos(club["angle"]) * power
 
         self.ball.last_pos = [self.ball.pos_x, self.ball.pos_z]
-        self.ball.spin = self.spin * self.swingspeed * self.backswing * math.sin(club["angle"])
+        self.ball.backspin = self.spin * self.swingspeed * self.backswing * math.sin(club["angle"])
         self.ball.direction = self.direction
 
     def set_new_direction(self):
@@ -128,60 +125,101 @@ class Ball():
     radius = 0.0213 # metres
     inertia = 2 / 5 * mass * radius ** 2
     cross_sectional_area = math.pi * radius**2
-    pos_x = 0
-    pos_y = 0
-    pos_z = 0
-    vel_x = 0
-    vel_y = 0
-    vel_z = 0
-    spin = 0
-    direction = 0
-    side_spin = 0
-    backspin = 0
-    image = ""
-    img_offset = (-3, -4)
-    on_green = False
-    is_moving = False
-    in_air = False
-    in_hole = False
-    in_sand = False
 
     def __init__(self, game, player, pos):
         self.game = game
         self.player = player
+
         self.pos_x = pos[0]
+        self.pos_y = 0
         self.pos_z = pos[1]
         self.last_pos = [self.pos_x, self.pos_z]
-        self.shadow_img = self.game.assets["images"]["ball/00"]
+
+        self.img_offset = (-3, -4)
+        self.surface_img_offset = (-24, -24)
+        self.shadow_img = self.game.images["ball/00"]
+
+        self.vel_x = 0
+        self.vel_y = 0
+        self.vel_z = 0
+
+        self.direction = 0
+        self.backspin = 0
+        self.side_spin = 0
+
+        self.on_tee = True
+        self.on_green = False
+        self.is_moving = False
+        self.in_air = False
+        self.in_hole = False
+        self.in_sand = False
 
     def render(self, surf, offset):
         if self.in_hole:
             return
         
-        ball_height = - self.pos_y * math.cos(math.radians(defs.VIEWING_ANGLE)) * 3
+        if self.player == self.game.player:
+            
+            ball_height = - self.pos_y * math.cos(math.radians(defs.VIEWING_ANGLE)) * 3
 
-        if self.on_green:
-            offset = (offset[0] + int(defs.GREEN_CAM_SCALE * (-self.pos_x - self.game.map.green[0])), offset[1] + int(defs.GREEN_CAM_SCALE * (-self.pos_z - self.game.map.green[1])))
-            if self.in_air:
-                surf.blit(self.shadow_img, (offset[0] + self.img_offset[0], offset[1] + self.img_offset[1]))
-            surf.blit(self.game.assets["images"][f"ball/0{int(min(self.pos_y // (5 / defs.GREEN_CAM_SCALE) + 1, 4))}"], (offset[0] + self.img_offset[0], offset[1] + defs.GREEN_CAM_SCALE * ball_height + self.img_offset[1]))
-        
+            if self.on_green:
+                offset = (offset[0] + int(defs.GREEN_CAM_SCALE * (-self.pos_x - self.game.map.green[0])), offset[1] + int(defs.GREEN_CAM_SCALE * (-self.pos_z - self.game.map.green[1])))
+                if self.in_air:
+                    surf.blit(self.shadow_img, (offset[0] + self.img_offset[0], offset[1] + self.img_offset[1]))
+                surf.blit(self.game.images[f"ball/0{int(min(self.pos_y // (5 / defs.GREEN_CAM_SCALE) + 1, 6))}"], (offset[0] + self.img_offset[0], offset[1] + defs.GREEN_CAM_SCALE * ball_height + self.img_offset[1]))
+            
+            else:
+                if -self.pos_x < defs.GAME_RESOLUTION[0] / 2:
+                    offset[0] = -self.pos_x
+                if -self.pos_x > self.game.map.img_size[0] - defs.GAME_RESOLUTION[0] / 2:
+                    offset[0] = defs.GAME_RESOLUTION[0] - (self.game.map.img_size[0] + self.pos_x)
+                if -self.pos_z < defs.GAME_RESOLUTION[1] / 2:
+                    offset[1] = -self.pos_z
+                if -self.pos_z > self.game.map.img_size[1] - defs.GAME_RESOLUTION[1] / 2:
+                    offset[1] = defs.GAME_RESOLUTION[1] - (self.game.map.img_size[1] + self.pos_z)
+
+                self.game.offset = offset
+
+                if self.game.state == defs.CHECKING_SURFACE:
+                    if self.on_tee:
+                        surf.blit(self.game.images[f"surface/tee"], (offset[0] + self.surface_img_offset[0], offset[1] + ball_height + self.surface_img_offset[1]))
+                    else:
+                        surf.blit(self.game.images[f"surface/{self.last_surface}"], (offset[0] + self.surface_img_offset[0], offset[1] + ball_height + self.surface_img_offset[1]))
+
+                    self.game.surface_check_timer -= 1
+
+                    if self.game.surface_check_timer <= 0:
+                        self.game.state = defs.CHOOSING_SWINGSPEED
+                else:
+                    if self.in_air:
+                        surf.blit(self.shadow_img, (offset[0] + self.img_offset[0], offset[1] + self.img_offset[1]))
+                    surf.blit(self.game.images[f"ball/0{int(min(self.pos_y // 5 + 1, 6))}"], (offset[0] + self.img_offset[0], offset[1] + ball_height + self.img_offset[1]))
+
         else:
-            if -self.pos_x < defs.GAME_RESOLUTION[0] / 2:
-                offset[0] = -self.pos_x
-            if -self.pos_x > self.game.map.img_size[0] - defs.GAME_RESOLUTION[0] / 2:
-                offset[0] = defs.GAME_RESOLUTION[0] - (self.game.map.img_size[0] + self.pos_x)
-            if -self.pos_z < defs.GAME_RESOLUTION[1] / 2:
-                offset[1] = -self.pos_z
-            if -self.pos_z > self.game.map.img_size[1] - defs.GAME_RESOLUTION[1] / 2:
-                offset[1] = defs.GAME_RESOLUTION[1] - (self.game.map.img_size[1] + self.pos_z)
+            if self.on_tee:
+                return
+            
+            main_ball = self.game.player.ball
 
-            self.game.offset = offset
+            if main_ball.on_green:
+                offset = [offset[0] + int(defs.GREEN_CAM_SCALE * (-self.pos_x - self.game.map.green[0])), offset[1] + int(defs.GREEN_CAM_SCALE * (-self.pos_z - self.game.map.green[1]))]
+            
+            else:
+                if -main_ball.pos_x < defs.GAME_RESOLUTION[0] / 2:
+                    offset[0] = -main_ball.pos_x
+                if -main_ball.pos_x > self.game.map.img_size[0] - defs.GAME_RESOLUTION[0] / 2:
+                    offset[0] = defs.GAME_RESOLUTION[0] - (self.game.map.img_size[0] + main_ball.pos_x)
+                if -main_ball.pos_z < defs.GAME_RESOLUTION[1] / 2:
+                    offset[1] = -main_ball.pos_z
+                if -main_ball.pos_z > self.game.map.img_size[1] - defs.GAME_RESOLUTION[1] / 2:
+                    offset[1] = defs.GAME_RESOLUTION[1] - (self.game.map.img_size[1] + main_ball.pos_z)
 
-            if self.in_air:
-                surf.blit(self.shadow_img, (offset[0] + self.img_offset[0], offset[1] + self.img_offset[1]))
-            surf.blit(self.game.assets["images"][f"ball/0{int(min(self.pos_y // 5 + 1, 4))}"], (offset[0] + self.img_offset[0], offset[1] + ball_height + self.img_offset[1]))
+                offset[0] += main_ball.pos_x - self.pos_x
+                offset[1] += main_ball.pos_z - self.pos_z
 
+            surf.blit(self.game.images[f"ball/10"], (offset[0] + self.img_offset[0], offset[1] + self.img_offset[1]))
+
+            
             
     def update(self):
 
@@ -223,6 +261,10 @@ class Ball():
         self.pos_y = max(self.pos_y + self.vel_y / defs.FRAME_RATE, 0)
         self.pos_z += self.vel_z / defs.FRAME_RATE
 
+        if self.pos_x == self.game.map.tee[0] and self.pos_z == self.game.map.tee[1]:
+            self.on_tee = True
+        else:
+            self.on_tee = False
 
     def check_ground_collision(self, vel_mgn_2d):
         surface = self.game.map.get_surface(self.pos_x, self.pos_z)
@@ -235,8 +277,8 @@ class Ball():
             self.side_spin = 0
 
             if self.in_air:
-                self.game.assets["sfx"][surface].set_volume(-self.vel_y / 30)
-                self.game.assets["sfx"][surface].play()
+                self.game.sfx[surface].set_volume(-self.vel_y / 30)
+                self.game.sfx[surface].play()
 
             if surface == "water":
                 self.pos_x = self.last_land_pos[0]
@@ -273,7 +315,10 @@ class Ball():
 
 
     def apply_side_spin(self):
-        direction = math.tan(self.vel_x/self.vel_z) / 2
+        if self.side_spin == 0:
+            return
+        
+        direction = math.tan(self.vel_x/self.vel_z) / 2 if self.vel_z != 0 else self.vel_x / abs(self.vel_x) * math.pi / 2
         self.vel_x -= math.cos(direction) * self.side_spin * defs.SIDE_SPIN_AFFECT / defs.FRAME_RATE 
         self.vel_z -= math.sin(direction) * self.side_spin * defs.SIDE_SPIN_AFFECT / defs.FRAME_RATE
 
@@ -321,23 +366,23 @@ class Ball():
         
         # apply accel on green
         roll_direction, gradient = self.game.map.get_green_gradient(self.pos_x, self.pos_z)
-        roll_acceleration = math.tan(gradient) * defs.GRAVITY
+        roll_acceleration = math.tan(gradient) * defs.GRAVITY * defs.GREEN_GRADIENT_AFFECT
 
-        self.vel_x += math.sin(roll_direction) * roll_acceleration / defs.FRAME_RATE
-        self.vel_z += math.cos(roll_direction) * roll_acceleration / defs.FRAME_RATE 
+        self.vel_x += math.sin(roll_direction) * roll_acceleration * vel_mgn_2d / defs.FRAME_RATE
+        self.vel_z += math.cos(roll_direction) * roll_acceleration * vel_mgn_2d / defs.FRAME_RATE 
 
     
     def apply_backspin(self, magnitude=1):
-        if self.spin == 0:
+        if self.backspin == 0:
             return
 
-        self.vel_x -= math.sin(self.direction + math.pi) * 10 * self.spin * magnitude / defs.FRAME_RATE
-        self.vel_z -= math.cos(self.direction + math.pi) * 10 * self.spin * magnitude / defs.FRAME_RATE
+        self.vel_x -= math.sin(self.direction + math.pi) * 10 * self.backspin * magnitude / defs.FRAME_RATE
+        self.vel_z -= math.cos(self.direction + math.pi) * 10 * self.backspin * magnitude / defs.FRAME_RATE
 
-        if self.spin < 0:
-            self.spin = min(0, self.spin + magnitude / defs.FRAME_RATE)
-        elif self.spin > 0:
-            self.spin = max(0, self.spin - magnitude / defs.FRAME_RATE)
+        if self.backspin < 0:
+            self.backspin = min(0, self.backspin + magnitude / defs.FRAME_RATE)
+        elif self.backspin > 0:
+            self.backspin = max(0, self.backspin - magnitude / defs.FRAME_RATE)
 
 
     def apply_rolling_resistance(self, vel_mgn_2d):
@@ -368,9 +413,10 @@ class Ball():
                 self.pos_x = self.last_pos[0]
                 self.pos_z = self.last_pos[1]
             
-            self.is_moving = False
-            self.spin = 0
-            self.game.player.set_new_direction()
+            if self.is_moving:
+                self.game.state = defs.CHOOSE_PLAYER
+                self.is_moving = False
+            self.backspin = 0
 
         else:
             self.is_moving = True
@@ -378,4 +424,6 @@ class Ball():
 
 
     def distance_from_pin(self):
+        if self.in_hole:
+            return 0
         return math.sqrt((-self.pos_x - self.game.map.pin[0]) ** 2 + (-self.pos_z - self.game.map.pin[1]) ** 2)

@@ -37,8 +37,10 @@ class Map():
     def get_green_gradient(self, x, y):
         x = int((-x - self.green[0] + defs.GREEN_CAM_SIZE) / 8 * defs.GREEN_CAM_SCALE)
         y = int((-y - self.green[1] + defs.GREEN_CAM_SIZE) / 8 * defs.GREEN_CAM_SCALE)
-        # print(x, y)
-        # print(int(self.green_gradient[y][x][0]), int(self.green_gradient[y][x][1]))
+
+        #print(x, y)
+        #print(int(self.green_gradient[y][x][0]), int(self.green_gradient[y][x][1]))
+
         direction = int(self.green_gradient[y][x][0]) * math.pi / 4
         gradient = math.radians(defs.GREEN_GRADIENT[int(self.green_gradient[y][x][1])])
         return direction, gradient
@@ -65,7 +67,7 @@ class Map():
         for z_offset in range(len(self.green_gradient)):
             for x_offset in range(len(self.green_gradient[0])):
                 if self.green_gradient[z_offset][x_offset] != '00':
-                    surf.blit(self.game.assets["images"][f"green_arrows/{self.green_gradient[z_offset][x_offset]}"], (x_offset * 8, z_offset * 8))
+                    surf.blit(self.game.images[f"green_arrows/{self.green_gradient[z_offset][x_offset]}"], (x_offset * 8, (defs.GAME_RESOLUTION[1] - defs.GAME_RESOLUTION[0]) / 2 +  z_offset * 8))
 
 
     def render_map_objects(self, surf, offset):
