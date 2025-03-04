@@ -89,6 +89,7 @@ class Game():
             "ball/05" : load_image("ball/05.png"),
             "ball/06" : load_image("ball/06.png"),
             "ball/10" : load_image("ball/10.png"),
+            "trees/01" : load_image("trees/01.png"),
             "crosshair/00" : load_image("crosshair/00.png"),
             "HUD/hit_indicator": load_image("HUD/hit_indicator.png"),
             "HUD/hit_bar" : load_image("HUD/hit_bar.png"),
@@ -101,7 +102,10 @@ class Game():
             "HUD/PT" : load_image("HUD/PT.png"),
             "HUD/SW" : load_image("HUD/SW.png"),
             "HUD/9I" : load_image("HUD/SW.png"),
+            "HUD/7I" : load_image("HUD/SW.png"),
+            "HUD/5I" : load_image("HUD/SW.png"),
             "HUD/3I" : load_image("HUD/SW.png"),
+            "HUD/3W" : load_image("HUD/1W.png"),
             "HUD/1W" : load_image("HUD/1W.png"),
             "surface/fairway" : load_image("surface/fairway.png"),
             "surface/tee" : load_image("surface/tee.png"),
@@ -141,7 +145,7 @@ class Game():
 
         self.players = []
         for i in range(no_players):
-            self.players.append(Player(self, ["PT", "SW", "9I", "3I", "1W"]))
+            self.players.append(Player(self, ["PT", "SW", "9I", "7I", "5I", "3I", "3W", "1W"]))
         
         self.player = self.players[0]
         self.state = defs.CHOOSE_PLAYER
@@ -335,6 +339,7 @@ class Game():
         if self.player.ball.in_hole:
             self.player = min(self.players, key=lambda x:(x.strokes))
             self.next_map()
+            self.player.choose_club()
 
         self.player.set_new_direction()
         self.player.choose_club()
@@ -384,7 +389,7 @@ class Game():
             self.display.fill((0, 0, 0))
             self.hud_display.fill((0, 0, 0))
 
-            #counter = (counter + 1)
+            counter = (counter + 1)
             if counter // defs.FRAME_RATE == 1:# or True:
                 counter = 0
                 print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
@@ -424,7 +429,7 @@ class Game():
                 if self.curr_animation.done:
                     self.state = defs.CHOOSE_PLAYER
 
-            if (self.state > defs.CHOOSING_BACKSPIN or self.player.ball.is_moving):
+            if defs.BALL_MOVING > self.state > defs.CHOOSING_BACKSPIN:
                 if self.music_playing:
                     pygame.mixer.music.pause()
                     self.music_playing = False

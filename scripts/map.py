@@ -5,6 +5,7 @@ import math
 
 import scripts.definitions as defs
 
+from scripts.tree import Tree
 from scripts.utils import load_image
 
 class Map():
@@ -25,6 +26,11 @@ class Map():
         self.green = course["green"]
         self.green_radius = course["green_radius"]
         self.green_gradient = course["green_gradient"]
+
+        self.trees = []
+        for tree in course["trees"]:
+            self.trees.append(Tree(self.game, tree["x"], tree["z"], tree["type"]))
+
         self.flag_offset = (-4, -7)
         self.hole_offset = (-3, -4)
         self.wind = [random.random() * 2 * math.pi, random.randint(0, defs.MAX_WINDSPEED)] # (angle, speed)
@@ -44,6 +50,10 @@ class Map():
         direction = int(self.green_gradient[y][x][0]) * math.pi / 4
         gradient = math.radians(defs.GREEN_GRADIENT[int(self.green_gradient[y][x][1])])
         return direction, gradient
+    
+    def check_tree_collisions(self, ball_x, ball_y, ball_z):
+        for tree in self.trees:
+            tree.check_collision(ball_x, ball_y, ball_z)
     
     def render(self, surf, offset):
         if math.sqrt((-self.game.player.ball.pos_x - self.green[0])**2 + (-self.game.player.ball.pos_z - self.green[1])**2) < self.green_radius:
@@ -78,3 +88,5 @@ class Map():
         else:
             render_offset = (offset[0] + int(round(self.pin[0])) + self.flag_offset[0], offset[1] + int(round(self.pin[1])) + self.flag_offset[1])
             surf.blit(self.flag_img, render_offset)
+            for tree in self.trees:
+                tree.render(surf, offset)

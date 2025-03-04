@@ -29,6 +29,22 @@ class Player():
     def new_ball(self):
         self.ball = Ball(self.game, self, self.game.map.tee)
 
+    def choose_club(self):
+        if self.ball.on_green:
+            self.club = 0
+            return
+        
+        distance_left = self.ball.distance_from_pin()
+        best = 500
+        for club in self.clubs[1:]:
+            if abs(distance_left - clubs[club]["distance"] * self.swingspeed) < best:
+                best = distance_left - clubs[club]["distance"]
+                self.club = self.clubs.index(club)
+            else:
+                break
+
+
+
     def update(self):
         self.direction -= 0.01 if self.turn_right else 0
         self.direction += 0.01 if self.turn_left else 0
@@ -153,6 +169,7 @@ class Ball():
         self.in_air = False
         self.in_hole = False
         self.in_sand = False
+        self.in_tree = False
 
     def render(self, surf, offset):
         if self.in_hole:
@@ -234,8 +251,9 @@ class Ball():
         self.check_ground_collision(velocity_magnitude_2d)
 
         if self.in_air:
+            self.game.map.check_tree_collisions(-self.pos_x, self.pos_y, -self.pos_z)
             self.apply_side_spin()
-            self.apply_drag(velocity_magnitude_3d)
+            self.apply_drag()
             self.apply_gravity()
             self.apply_wind()
 
@@ -252,7 +270,7 @@ class Ball():
             self.apply_backspin(magnitude=3)
             self.apply_rolling_resistance(velocity_magnitude_2d)
 
-        self.check_movement(velocity_magnitude_3d)
+        self.check_movement()
 
 
     def update_position(self):
@@ -323,18 +341,39 @@ class Ball():
         self.vel_z -= math.sin(direction) * self.side_spin * defs.SIDE_SPIN_AFFECT / defs.FRAME_RATE
 
 
-    def apply_drag(self, vel_mgn_3d):
+    def apply_drag(self):
+        if self.in_tree:
+            if (self.vel_x > 0):
+                self.vel_x = min(6, self.vel_x)
+            else:
+                self.vel_x = max(-6, self.vel_x)
+
+            self.vel_y = min(0, self.vel_y)
+
+            if (self.vel_z > 0):
+                self.vel_z = min(6, self.vel_z)
+            else:
+                self.vel_z = max(-6, self.vel_z)
+
+            wind_x = 0
+            wind_z = 0
+        else: 
+            wind_x = math.sin(self.game.map.wind[0]) * self.game.map.wind[1]
+            wind_z = math.cos(self.game.map.wind[0]) * self.game.map.wind[1]
+
+        vel_mgn_3d = math.sqrt((self.vel_x - wind_x)**2 + self.vel_y**2 + (self.vel_z - wind_z)**2)
+
         if vel_mgn_3d < defs.VELOCITY_THRESHOLD:
             return
         
         # Calculate drag force
         drag_acceleration = (defs.BALL_WIND_RESISTANCE * defs.AIR_DENSITY * self.cross_sectional_area * vel_mgn_3d**2) / (2 * self.mass)
-        
+
         # apply drag acceleration
         if (self.vel_x > 0):
-            self.vel_x = max(self.vel_x - drag_acceleration * (self.vel_x / vel_mgn_3d) / defs.FRAME_RATE, 0)
+            self.vel_x = max(self.vel_x - drag_acceleration * ((self.vel_x - wind_x) / vel_mgn_3d) / defs.FRAME_RATE, 0)
         else:
-            self.vel_x = min(self.vel_x - drag_acceleration * (self.vel_x / vel_mgn_3d) / defs.FRAME_RATE, 0)
+            self.vel_x = min(self.vel_x - drag_acceleration * ((self.vel_x - wind_x) / vel_mgn_3d) / defs.FRAME_RATE, 0)
         
         if (self.vel_y > 0):
             self.vel_y = max(self.vel_y - drag_acceleration * (self.vel_y / vel_mgn_3d) / defs.FRAME_RATE, 0)
@@ -342,9 +381,9 @@ class Ball():
             self.vel_y = min(self.vel_y - drag_acceleration * (self.vel_y / vel_mgn_3d) / defs.FRAME_RATE, 0)
 
         if (self.vel_z > 0):
-            self.vel_z = max(self.vel_z - drag_acceleration * (self.vel_z / vel_mgn_3d) / defs.FRAME_RATE, 0)
+            self.vel_z = max(self.vel_z - drag_acceleration * ((self.vel_z - wind_z) / vel_mgn_3d) / defs.FRAME_RATE, 0)
         else:
-            self.vel_z = min(self.vel_z - drag_acceleration * (self.vel_z / vel_mgn_3d) / defs.FRAME_RATE, 0)
+            self.vel_z = min(self.vel_z - drag_acceleration * ((self.vel_z - wind_z) / vel_mgn_3d) / defs.FRAME_RATE, 0)
 
 
     def apply_gravity(self):
@@ -353,6 +392,9 @@ class Ball():
 
 
     def apply_wind(self):
+        if self.in_tree:
+            return
+        
         # apply wind
         wind_acceleration = (defs.BALL_WIND_RESISTANCE * defs.AIR_DENSITY * self.cross_sectional_area * self.game.map.wind[1]**2) / (2 * self.mass)
         
@@ -404,9 +446,9 @@ class Ball():
             self.vel_z = min(self.vel_z - (self.vel_z * math.sqrt(new_vel_mgn_2d)) * defs.BALL_ROLLING_RESISTANCE / defs.FRAME_RATE, 0)
 
 
-    def check_movement(self, vel_mgn_3d):
+    def check_movement(self):
         # check if ball is stationary
-        if vel_mgn_3d == 0:
+        if math.sqrt(self.vel_x**2 + self.vel_y**2 + self.vel_z**2) == 0:
             # check OB
             if self.last_surface == "OB":
                 self.game.player.strokes += 1
