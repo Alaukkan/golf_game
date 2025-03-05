@@ -16,14 +16,22 @@ class Tree:
             if dist_sqrd <= 38:
                 height = 40 - dist_sqrd
                 if ball_y <= height:
-                    self.game.player.ball.in_tree = True
-                    self.game.player.ball.side_spin = 0
-                    return
+                    return True
                 
         elif self.type == 2:
-            pass
-        
-        self.game.player.ball.in_tree = False
+            
+            if dist_sqrd <= 100:
+                r = 0.001 * dist_sqrd**2
+                tree_top = 27 - r
+                tree_bottom = 7 + r
+
+                if ball_y <= tree_top and ball_y >= tree_bottom:
+                    return True
+                
+                elif dist_sqrd <= 1 and ball_y < tree_bottom: # hits the tree trunk
+                    self.game.player.ball.hit_tree_trunk()
+
+        return False
 
     def render(self, surf, offset):
         img = self.game.images[f"trees/{self.type:02}"]

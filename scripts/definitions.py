@@ -15,7 +15,7 @@ ICON_BACKGROUND_POS = (2, 4)
 
 MENU_TEXT_POS = (int(RESOLUTION[0] * 0.25), int(RESOLUTION[1] * 0.45))
 
-HOLE_NUMBER_POS = (int(HUD_RESOLUTION[0] * 0.22), int(HUD_RESOLUTION[1] * 0.04))
+HOLE_NUMBER_POS = (int(HUD_RESOLUTION[0] * 0.17), int(HUD_RESOLUTION[1] * 0.04))
 
 DISTANCE_IMG_POS = (int(HUD_RESOLUTION[0] * 0.2), int(HUD_RESOLUTION[1] * 0.22))
 DISTANCE_TEXT_POS = (int(HUD_RESOLUTION[0] * 0.2), int(HUD_RESOLUTION[1] * 0.3))
@@ -40,11 +40,17 @@ SPIN_OPTIONS = ["NO", "F1", "F2", "B2", "B1"]
 
 COLOR_TO_SURFACE = {
     (52, 107, 191) : "water", # [346bbf]
+    (59, 47, 1) : "water",
     (199, 192, 58) : "sand", # [c7c03a]
     (34, 191, 77) : "green", # [22bf4d]
+    (21, 137, 53) : "green",
     (50, 168, 82) : "fairway", # [32a852]
+    (34, 123, 58) : "fairway",
     (25, 69, 37) : "rough", # [194525]
-    (0, 0, 0) : "OB"
+    (19, 55, 29) : "rough",
+    (0, 0, 0) : "OB",
+    (11, 32, 17) : "OB",
+    (1, 9, 0) : "OB"
 }
 
 # states

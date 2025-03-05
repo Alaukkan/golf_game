@@ -75,7 +75,6 @@ class Game():
         self.display = pygame.Surface(defs.GAME_RESOLUTION, pygame.SRCALPHA)
         self.hud_display = pygame.Surface(defs.HUD_RESOLUTION, pygame.SRCALPHA)
 
-
         self.clock = pygame.time.Clock()
 
         self.font = pygame.font.Font("graphics/fonts/PressStart2P-vaV7.ttf", defs.FONT_SIZE)
@@ -90,6 +89,7 @@ class Game():
             "ball/06" : load_image("ball/06.png"),
             "ball/10" : load_image("ball/10.png"),
             "trees/01" : load_image("trees/01.png"),
+            "trees/02" : load_image("trees/02.png"),
             "crosshair/00" : load_image("crosshair/00.png"),
             "HUD/hit_indicator": load_image("HUD/hit_indicator.png"),
             "HUD/hit_bar" : load_image("HUD/hit_bar.png"),
@@ -201,6 +201,7 @@ class Game():
                     if event.key == pygame.K_c:
                         if self.state == defs.CHOOSING_SWINGSPEED:
                             self.player.swingspeed = defs.SWINGSPEED_OPTIONS[self.pointer][1]
+                            self.player.choose_club()
                             self.pointer = 0
 
                         elif self.state == defs.CHOOSING_CLUB:
@@ -213,7 +214,7 @@ class Game():
 
                         elif self.state == defs.CHOOSING_BACKSWING:
                             self.player.backswing = self.assets["hitting_meter"] / defs.MAX_BACKSWING
-                            if self.player.ball.on_green:
+                            if self.player.club == 0:
                                 self.player.hit_ball()
                                 self.state += 1
 
@@ -239,10 +240,10 @@ class Game():
         self.hud_display.blit(img, pos)
 
         # render hole info
-        text = (f"H:{self.hole:02}")
+        text = (f"HOLE{self.hole}")
         distance = self.font.render(text, False, (255, 255, 255)) 
         self.hud_display.blit(distance, defs.HOLE_NUMBER_POS)
-        text = (f"PAR{self.map.par}")
+        text = (f"PAR {self.map.par}")
         distance = self.font.render(text, False, (255, 255, 255)) 
         self.hud_display.blit(distance, (defs.HOLE_NUMBER_POS[0], defs.HOLE_NUMBER_POS[1] + 9))
         text = (f"{self.map.length:3}m")
@@ -339,10 +340,8 @@ class Game():
         if self.player.ball.in_hole:
             self.player = min(self.players, key=lambda x:(x.strokes))
             self.next_map()
-            self.player.choose_club()
 
         self.player.set_new_direction()
-        self.player.choose_club()
 
 
     def ball_in_hole(self):

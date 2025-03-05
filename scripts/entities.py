@@ -38,11 +38,10 @@ class Player():
         best = 500
         for club in self.clubs[1:]:
             if abs(distance_left - clubs[club]["distance"] * self.swingspeed) < best:
-                best = distance_left - clubs[club]["distance"]
+                best = distance_left - clubs[club]["distance"] * self.swingspeed
                 self.club = self.clubs.index(club)
             else:
                 break
-
 
 
     def update(self):
@@ -244,7 +243,7 @@ class Ball():
             return
         
         velocity_magnitude_2d = math.sqrt(self.vel_x**2 + self.vel_z**2)
-        velocity_magnitude_3d = math.sqrt(self.vel_x**2 + self.vel_y**2 + self.vel_z**2)
+        #velocity_magnitude_3d = math.sqrt(self.vel_x**2 + self.vel_y**2 + self.vel_z**2)
 
         self.update_position()
 
@@ -286,6 +285,9 @@ class Ball():
 
     def check_ground_collision(self, vel_mgn_2d):
         surface = self.game.map.get_surface(self.pos_x, self.pos_z)
+
+        self.on_green = surface == "green"
+
         if surface != "water":
             self.last_land_pos = [self.pos_x, self.pos_z]
 
@@ -463,6 +465,10 @@ class Ball():
         else:
             self.is_moving = True
             self.game.player.direction_set = False
+
+    
+    def hit_tree_trunk(self):
+        pass
 
 
     def distance_from_pin(self):

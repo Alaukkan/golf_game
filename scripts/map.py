@@ -53,12 +53,17 @@ class Map():
     
     def check_tree_collisions(self, ball_x, ball_y, ball_z):
         for tree in self.trees:
-            tree.check_collision(ball_x, ball_y, ball_z)
+            if tree.check_collision(ball_x, ball_y, ball_z):
+                self.game.player.ball.in_tree = True
+                self.game.player.ball.side_spin = 0
+                return
+            
+        self.game.player.ball.in_tree = False
     
     def render(self, surf, offset):
-        if math.sqrt((-self.game.player.ball.pos_x - self.green[0])**2 + (-self.game.player.ball.pos_z - self.green[1])**2) < self.green_radius:
+        #if math.sqrt((-self.game.player.ball.pos_x - self.green[0])**2 + (-self.game.player.ball.pos_z - self.green[1])**2) < self.green_radius:
             #(abs(-self.game.ball.pos_x - self.green[0]) <= defs.GREEN_AREA_SIZE and abs(-self.game.ball.pos_z - self.green[1]) <= defs.GREEN_AREA_SIZE):
-            self.game.player.ball.on_green = True
+        if self.game.player.ball.on_green:
             surf.blit(self.green_img, (0, 0))
             self.render_green_arrows(surf)
         else:
@@ -70,7 +75,6 @@ class Map():
                 offset[1] = 0
             if -self.game.player.ball.pos_z > self.game.map.img_size[1] - defs.GAME_RESOLUTION[1] / 2:
                 offset[1] = defs.GAME_RESOLUTION[1] - self.game.map.img_size[1]
-            self.game.player.ball.on_green = False
             surf.blit(self.img, offset)
 
     def render_green_arrows(self, surf):
