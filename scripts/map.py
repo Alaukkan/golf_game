@@ -6,34 +6,37 @@ import math
 import scripts.definitions as defs
 
 from scripts.tree import Tree
-from scripts.utils import load_image
+from scripts.utils import load_image, load_hole
 
 class Map():
 
-    def __init__(self, game, course):
+    def __init__(self, game, course, hole_num):
         random.seed(time.time())
-
         self.game = game
-        self.img = load_image(f"courses/{course['number']}.png")
+
+        hole = load_hole(course, hole_num)
+        self.img = load_image(f"courses/{hole['number']}.png")
         self.img_size = self.img.get_size()
         self.flag_img = load_image(f"courses/flag/01.png")
         self.hole_img = load_image(f"courses/flag/02.png")
-        self.green_img = pygame.transform.scale(load_image(f"courses/greens/{course['number']}.png"), defs.GAME_RESOLUTION)
-        self.length = course["length"]
-        self.par = course["par"]
-        self.tee = course["tee"]
-        self.pin = course["pin"][random.randint(0, len(course["pin"]) - 1)]
-        self.green = course["green"]
-        self.green_radius = course["green_radius"]
-        self.green_gradient = course["green_gradient"]
+        self.green_img = pygame.transform.scale(load_image(f"courses/greens/{hole['number']}.png"), defs.GAME_RESOLUTION)
+        self.length = hole["length"]
+        self.par = hole["par"]
+        self.tee = hole["tee"]
+        self.pin = hole["pin"][random.randint(0, len(hole["pin"]) - 1)]
+        self.green = hole["green"]
+        self.green_radius = hole["green_radius"]
+        self.green_gradient = hole["green_gradient"]
 
         self.trees = []
-        for tree in course["trees"]:
+        for tree in hole["trees"]:
             self.trees.append(Tree(self.game, tree["x"], tree["z"], tree["type"]))
 
         self.flag_offset = (-4, -7)
         self.hole_offset = (-3, -4)
         self.wind = [random.random() * 2 * math.pi, random.randint(0, defs.MAX_WINDSPEED)] # (angle, speed)
+
+        self.game.course_pars.append(int(self.par))
 
     def get_surface(self, x, y):
         surface_color = tuple(self.img.get_at((int(-x), int(-y))))[:3] if (-x > 0 and -x < self.img_size[0] and -y > 0 and -y < self.img_size[1]) else (0, 0, 0)

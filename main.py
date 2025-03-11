@@ -6,8 +6,13 @@ import scripts.definitions as defs
 from scripts.entities import Player
 from scripts.map import Map
 from scripts.clubs import clubs
-from scripts.courses import courses
-from scripts.utils import load_image, load_images, Animation
+from scripts.utils import load_image, load_images, save_scores, Animation
+
+START_MENU = 0
+GAME_RUNNING = 3
+END_SCREEN = 1
+HIGH_SCORES = 2
+
 
 class Menu():
     def __init__(self, screen):
@@ -17,6 +22,12 @@ class Menu():
         self.clock = pygame.time.Clock()
 
         self.font = pygame.font.Font("graphics/fonts/PressStart2P-vaV7.ttf", defs.FONT_SIZE)
+
+        self.images = {
+            "scorecards" : load_image("HUD/scorecards.png")
+        }
+
+        self.state = START_MENU
 
         self.options = ["1 Player game", "2 Player game"]
         self.pointer = 0
@@ -36,18 +47,83 @@ class Menu():
                     self.pointer = min(self.pointer + 1, len(self.options) - 1)
                 if event.key == pygame.K_c:
                     self.select()
+                if event.key == pygame.K_x:
+                    self.back()
 
     def render(self):
-        for i, option in enumerate(self.options):
-            text = self.font.render(option, False, (255, 255, 255)) 
-            self.display.blit(text, (defs.MENU_TEXT_POS[0], defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * i))
+        if self.state == START_MENU:
+            for i, option in enumerate(self.options):
+                text = self.font.render(option, False, (255, 255, 255)) 
+                self.display.blit(text, (defs.MENU_TEXT_POS[0], defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * i))
 
-        pointer = self.font.render(">", False, (255, 255, 255))
-        self.display.blit(pointer, (defs.MENU_TEXT_POS[0] - (defs.FONT_SIZE + 2), defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * self.pointer))
+            pointer = self.font.render(">", False, (255, 255, 255))
+            self.display.blit(pointer, (defs.MENU_TEXT_POS[0] - (defs.FONT_SIZE + 2), defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * self.pointer))
+        
+        elif self.state == END_SCREEN:
+            self.display.blit(self.images["scorecards"], defs.SCORECARD_POS)
+            text = self.font.render("PAR", False, (255, 255, 255)) 
+            self.display.blit(text, (defs.SCORECARD_POS[0] + 6, defs.SCORECARD_POS[1] + 5))
+
+            for i, par in enumerate(self.game.course_pars):
+                text = self.font.render(str(par), False, (255, 255, 255)) 
+                self.display.blit(text, (defs.SCORECARD_POS[0] + 38 + 13 * (i), defs.SCORECARD_POS[1] + 5))
+            
+            text = self.font.render(str(sum(self.game.course_pars)), False, (255, 255, 255)) 
+            self.display.blit(text, (defs.SCORECARD_POS[0] + 42 + 13 * (i + 1), defs.SCORECARD_POS[1] + 5))
+
+            for i, player in enumerate(self.game.players):
+                self.display.blit(self.images["scorecards"], (defs.SCORECARD_POS[0], defs.SCORECARD_POS[1] + 13 * (i + 1)))
+
+                text = self.font.render(f"P{i + 1}", False, (255, 255, 255))
+                self.display.blit(text, (defs.SCORECARD_POS[0] + 6, defs.SCORECARD_POS[1] + 5 + 13 * (i + 1)))
+
+                for j, score in enumerate(player.scorecard):
+                    text = self.font.render(str(score), False, defs.SCORE_COLORS[score - self.game.course_pars[j]])
+                    self.display.blit(text, (defs.SCORECARD_POS[0] + 38 + 13 * (j), defs.SCORECARD_POS[1] + 5 + 13 * (i + 1)))
+
+                text = self.font.render(str(sum(player.scorecard)), False, (255, 255, 255)) 
+                self.display.blit(text, (defs.SCORECARD_POS[0] + 42 + 13 * (j + 1), defs.SCORECARD_POS[1] + 5 + 13 * (i + 1)))
+
+            text = self.font.render("New game", False, (255, 255, 255)) 
+            self.display.blit(text, (defs.MENU_TEXT_POS[0] + 20, defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * (i + 2)))
+            text = self.font.render("Quit", False, (255, 255, 255)) 
+            self.display.blit(text, (defs.MENU_TEXT_POS[0] + 20, defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * (i + 3)))
+
+            pointer = self.font.render(">", False, (255, 255, 255))
+            self.display.blit(pointer, (defs.MENU_TEXT_POS[0] + 20 - (defs.FONT_SIZE + 2), defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * (self.pointer + i + 2)))
+
 
     def select(self):
-        self.running = False
-        Game(screen, self.pointer + 1).run()
+        if self.state == START_MENU:
+
+            if self.pointer < 2:
+                self.game = Game(screen, self.pointer + 1)
+                self.state = GAME_RUNNING
+
+            elif self.pointer == HIGH_SCORES:
+                self.state = HIGH_SCORES
+
+        elif self.state == END_SCREEN:
+
+            if self.pointer == START_MENU:
+                self.state = START_MENU
+
+            elif self.pointer == 1:
+                pygame.quit()
+                sys.exit()
+
+        self.pointer = 0
+
+    def back(self):
+        if self.state == START_MENU:
+            return
+
+        if self.state == HIGH_SCORES:
+            self.state = START_MENU
+
+        elif self.state == END_SCREEN:
+            pass
+
 
     def run(self):
         self.running = True
@@ -55,6 +131,10 @@ class Menu():
         while self.running:
 
             self.display.fill((0, 0, 0))
+
+            if self.state == GAME_RUNNING:
+                self.game.run()
+                self.state = END_SCREEN
 
             self.render()
 
@@ -140,8 +220,10 @@ class Game():
 
         self.sfx["hole"].set_volume(1)
         
+        self.course = "classic"
+        self.course_pars = []
         self.hole = 1
-        self.map = Map(self, courses[f"{self.hole:02}"])
+        self.map = Map(self, self.course, self.hole)
 
         self.players = []
         for i in range(no_players):
@@ -222,6 +304,13 @@ class Game():
                             self.player.hit_ball()
                         
                         self.state += 1
+
+                    if event.key == pygame.K_d:
+                        self.hole = 3
+                        for player in self.players:
+                            player.scorecard = [4, 4, 4]
+                        
+                        self.next_map()
 
                 if event.type == pygame.KEYUP:
                     if event.key == pygame.K_LEFT:
@@ -371,11 +460,43 @@ class Game():
         self.player.scorecard.append(self.player.strokes)
 
     def next_map(self):
+        if self.hole == 3:
+            save_scores(self)
+            self.running = False
+            return
+
         self.hole += 1
-        self.map = Map(self, courses[f"{self.hole:02}"])
+        self.map = Map(self, self.course, self.hole)
         for player in self.players:
             player.new_ball()
             player.strokes = 0
+
+    def print_debug(self):
+        if self.frame // defs.FRAME_RATE == 1:# or True:
+            print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
+                    f"ball position:     {self.player.ball.pos_x:.2f} {self.player.ball.pos_y:.2f} {self.player.ball.pos_z:.2f}\n"
+                    f"ball velocity:     {self.player.ball.vel_x:.2f} {self.player.ball.vel_y:.2f} {self.player.ball.vel_z:.2f}\n"
+                    f"distance from pin: {self.player.ball.distance_from_pin():.2f}\n"
+                    f"wind: {self.map.wind[0]}   {self.map.wind[1]} m/s\n"
+                    f"state: {self.state}\n"
+                    f"Timer: {self.surface_check_timer}\n")
+
+    def update_music(self):
+        if defs.BALL_MOVING > self.state > defs.CHOOSING_BACKSPIN:
+            if self.music_playing:
+                pygame.mixer.music.pause()
+                self.music_playing = False
+        else:
+            if not self.music_playing:
+                pygame.mixer.music.unpause()
+                self.music_playing = True
+
+    def update_animation(self):
+        self.display.blit(self.curr_animation.img(), defs.ANIMATION_POS)
+        self.curr_animation.update()
+
+        if self.curr_animation.done:
+            self.state = defs.CHOOSE_PLAYER
 
     def run(self):
         pygame.mixer.music.load('music/01.wav')
@@ -383,21 +504,15 @@ class Game():
         pygame.mixer.music.play(-1)
         self.music_playing = True
 
-        counter = 0
-        while True:
+        self.running = True
+        self.frame = 0
+
+        while self.running:
             self.display.fill((0, 0, 0))
             self.hud_display.fill((0, 0, 0))
+            self.frame += 1
 
-            counter = (counter + 1)
-            if counter // defs.FRAME_RATE == 1:# or True:
-                counter = 0
-                print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
-                        f"ball position:     {self.player.ball.pos_x:.2f} {self.player.ball.pos_y:.2f} {self.player.ball.pos_z:.2f}\n"
-                        f"ball velocity:     {self.player.ball.vel_x:.2f} {self.player.ball.vel_y:.2f} {self.player.ball.vel_z:.2f}\n"
-                        f"distance from pin: {self.player.ball.distance_from_pin():.2f}\n"
-                        f"wind: {self.map.wind[0]}   {self.map.wind[1]} m/s\n"
-                        f"state: {self.state}\n"
-                        f"Timer: {self.surface_check_timer}\n")
+            self.print_debug()
 
             if self.state == defs.CHOOSE_PLAYER:
                 self.choose_player()
@@ -410,7 +525,6 @@ class Game():
             self.player.update()
             self.player.ball.update()
 
-
             self.map.render_map_objects(self.display, self.offset)
 
             render_order = sorted(self.players, key=lambda x:(x.ball.distance_from_pin()))
@@ -422,20 +536,9 @@ class Game():
             self.render_hud()
             
             if self.state == defs.PLAYING_ANIMATION:
-                self.display.blit(self.curr_animation.img(), defs.ANIMATION_POS)
-                self.curr_animation.update()
+                self.update_animation()
 
-                if self.curr_animation.done:
-                    self.state = defs.CHOOSE_PLAYER
-
-            if defs.BALL_MOVING > self.state > defs.CHOOSING_BACKSPIN:
-                if self.music_playing:
-                    pygame.mixer.music.pause()
-                    self.music_playing = False
-            else:
-                if not self.music_playing:
-                    pygame.mixer.music.unpause()
-                    self.music_playing = True
+            self.update_music()
 
             self.check_input()
 
