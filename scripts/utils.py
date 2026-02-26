@@ -26,13 +26,20 @@ def save_scores(game):
         highscores = json.load(f)
 
         for player in game.players:
-            highscores.append({"time" : gametime, "scorecard" : player.scorecard, "score" : sum(game.course_pars) - sum(player.scorecard)})
+            highscores.append({"time" : gametime, "scorecard" : player.scorecard, "score" : sum(player.scorecard) - sum(game.course_pars)})
+
+        highscores.sort(key=(lambda x:(x["score"])))
 
     with open("resources/highscores.json", "w") as f:
         formatted_json = json.dumps(highscores, indent=4)
         formatted_json = formatted_json.replace("\n            ", "").replace("\n        ]", "]")
 
         f.write(formatted_json)
+
+def load_scores():
+    with open("resources/highscores.json", "r") as f:
+        highscores = json.load(f)
+    return highscores
 
 
 class Animation:

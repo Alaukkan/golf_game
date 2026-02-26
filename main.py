@@ -5,8 +5,7 @@ import math
 import scripts.definitions as defs
 from scripts.entities import Player
 from scripts.map import Map
-from scripts.clubs import clubs
-from scripts.utils import load_image, load_images, save_scores, Animation
+from scripts.utils import *
 
 START_MENU = 0
 GAME_RUNNING = 3
@@ -28,9 +27,14 @@ class Menu():
         }
 
         self.state = START_MENU
-
-        self.options = ["1 Player game", "2 Player game"]
+        self.highscores = []
+        self.options = ["1 Player game", "2 Player game", "Highscores"]
         self.pointer = 0
+        self.scroll = 0
+        self.button_pressed = {
+            "UP" : False, 
+            "DOWN" : False
+        }
 
     def check_input(self):
         for event in pygame.event.get():
@@ -42,13 +46,28 @@ class Menu():
                     pygame.quit()
                     sys.exit()
                 if event.key == pygame.K_UP:
-                    self.pointer = max(self.pointer - 1, 0)
+                    if self.state == START_MENU:
+                        self.pointer = max(self.pointer - 1, 0)
+                    elif self.state == HIGH_SCORES:
+                        self.button_pressed["UP"] = True
+
                 if event.key == pygame.K_DOWN:
-                    self.pointer = min(self.pointer + 1, len(self.options) - 1)
+                    if self.state == START_MENU:  
+                        self.pointer = min(self.pointer + 1, len(self.options) - 1)
+                    elif self.state == HIGH_SCORES:
+                        self.button_pressed["DOWN"] = True
+
                 if event.key == pygame.K_c:
                     self.select()
                 if event.key == pygame.K_x:
                     self.back()
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_UP:
+                    self.button_pressed["UP"] = False
+
+                if event.key == pygame.K_DOWN:
+                    self.button_pressed["DOWN"] = False
 
     def render(self):
         if self.state == START_MENU:
@@ -92,6 +111,23 @@ class Menu():
             pointer = self.font.render(">", False, (255, 255, 255))
             self.display.blit(pointer, (defs.MENU_TEXT_POS[0] + 20 - (defs.FONT_SIZE + 2), defs.MENU_TEXT_POS[1] + (defs.FONT_SIZE + 2) * (self.pointer + i + 2)))
 
+        elif self.state == HIGH_SCORES:
+            for i, score in enumerate(self.highscores):
+                # render time
+                text = self.font.render(f"{score['time']}", False, (255, 255, 255)) 
+                self.display.blit(text, (defs.SCORECARD_POS[0] - 20, self.scroll + defs.SCORECARD_POS[1] + 30 * i))
+
+                # render scorecard image
+                self.display.blit(self.images["scorecards"], (defs.SCORECARD_POS[0], self.scroll + defs.SCORECARD_POS[1] + 8 + 30 * i))
+
+                for j, hole_score in enumerate(score["scorecard"]):
+                    text = self.font.render(str(hole_score), False, (255, 255, 255))
+                    self.display.blit(text, (defs.SCORECARD_POS[0] + 38 + 13 * (j), self.scroll + defs.SCORECARD_POS[1] + 13 + 30 * i))
+
+                text = self.font.render(str(score["score"]), False, (255, 255, 255)) 
+                self.display.blit(text, (defs.SCORECARD_POS[0] + 42 + 13 * (j + 1), self.scroll + defs.SCORECARD_POS[1] + 13 + 30 * i))
+
+
 
     def select(self):
         if self.state == START_MENU:
@@ -101,6 +137,8 @@ class Menu():
                 self.state = GAME_RUNNING
 
             elif self.pointer == HIGH_SCORES:
+                self.highscores = load_scores()
+                self.scroll = 0
                 self.state = HIGH_SCORES
 
         elif self.state == END_SCREEN:
@@ -133,12 +171,18 @@ class Menu():
             self.display.fill((0, 0, 0))
 
             if self.state == GAME_RUNNING:
+                self.highscores = []
                 self.game.run()
                 self.state = END_SCREEN
 
             self.render()
 
             self.check_input()
+
+            if self.button_pressed["UP"]:
+                self.scroll = min(0, self.scroll + 2)
+            if self.button_pressed["DOWN"]:
+                self.scroll = max(100 - len(self.highscores) * 30, self.scroll - 2)
 
             self.screen.blit(pygame.transform.scale(self.display, (defs.RESOLUTION[0] * defs.PIXEL_SIZE, defs.RESOLUTION[1] * defs.PIXEL_SIZE)), (0, 0))
 
@@ -307,8 +351,9 @@ class Game():
 
                     if event.key == pygame.K_d:
                         self.hole = 3
+                        self.course_pars = [4, 3, 5]
                         for player in self.players:
-                            player.scorecard = [4, 4, 4]
+                            player.scorecard = [3, 2, 4]
                         
                         self.next_map()
 
@@ -400,7 +445,7 @@ class Game():
                 club = self.font.render(text, False, (255, 255, 255))
                 self.hud_display.blit(club, defs.CLUB_TEXT_POS)
 
-                club = clubs[self.player.clubs[self.player.club]]
+                club = defs.CLUBS[self.player.clubs[self.player.club]]
                 text = (f"{int(club['distance'] * self.player.swingspeed):3}m")
                 club_distance = self.font.render(text, False, (255, 255, 255)) 
                 self.hud_display.blit(club_distance, defs.CLUB_DISTANCE_POS)
@@ -549,6 +594,7 @@ class Game():
 
             pygame.display.update()
             self.clock.tick(defs.FRAME_RATE)
+        pygame.mixer.music.fadeout(2)
 
 if __name__ == "__main__":
     pygame.init()

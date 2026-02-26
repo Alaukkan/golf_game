@@ -2,7 +2,6 @@ import math
 import pygame
 
 import scripts.definitions as defs
-from scripts.clubs import clubs
 
 class Player():
     clubs = []
@@ -37,8 +36,8 @@ class Player():
         distance_left = self.ball.distance_from_pin()
         best = 500
         for club in self.clubs[1:]:
-            if abs(distance_left - clubs[club]["distance"] * self.swingspeed) < best:
-                best = distance_left - clubs[club]["distance"] * self.swingspeed
+            if abs(distance_left - defs.CLUBS[club]["distance"] * self.swingspeed) < best:
+                best = distance_left - defs.CLUBS[club]["distance"] * self.swingspeed
                 self.club = self.clubs.index(club)
             else:
                 break
@@ -105,7 +104,7 @@ class Player():
         self.overswung = False
         self.strokes += 1
 
-        club = clubs[self.clubs[self.club]]
+        club = defs.CLUBS[self.clubs[self.club]]
         surface = self.ball.last_surface
 
         power = club["power"] * defs.SURFACE_SWING_AFFECT[surface][club["type"]] * self.swingspeed * self.backswing

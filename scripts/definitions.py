@@ -1,3 +1,5 @@
+import math
+
 GAME_RESOLUTION = (200, 300)
 HUD_RESOLUTION = (56, 200)
 RESOLUTION = (HUD_RESOLUTION[0] + GAME_RESOLUTION[0] * GAME_RESOLUTION[0] / GAME_RESOLUTION[1], HUD_RESOLUTION[1])
@@ -82,8 +84,13 @@ HOLE_RADIUS = 0.2
 PERFECT_BACKSWING = 0.98
 PERFECT_SIDESPIN = 1
 MAX_WINDSPEED = 12
+<<<<<<< HEAD
 WIND_AFFECT = 3
 SIDE_SPIN_AFFECT = 0.5
+=======
+WIND_AFFECT = 2
+SIDE_SPIN_AFFECT = 1
+>>>>>>> 77b07e13c4d13b2215ff2d31d2ad4364a223dee8
 GRAVITY = 9.81
 BALL_ROLLING_RESISTANCE = 0.5
 BALL_WIND_RESISTANCE = 0.5
@@ -135,3 +142,14 @@ SURFACE_SWING_AFFECT = {
 
 GREEN_GRADIENT = [0, 0.05, 0.09, 0.12, 0.14]
 GREEN_GRADIENT_AFFECT = 10
+
+CLUBS = {
+    "1W" : {"power" : 280, "angle" : math.radians(9), "type" : "wood", "distance" : 270},
+    "3W" : {"power" : 200, "angle" : math.radians(12), "type" : "iron", "distance" : 210},
+    "3I" : {"power" : 100, "angle" : math.radians(18), "type" : "iron", "distance" : 170},
+    "5I" : {"power" : 75, "angle" : math.radians(23), "type" : "iron", "distance" : 140},
+    "7I" : {"power" : 50, "angle" : math.radians(30), "type" : "iron", "distance" : 100},
+    "9I" : {"power" : 40, "angle" : math.radians(40), "type" : "iron", "distance" : 80},
+    "SW" : {"power" : 28, "angle" : math.radians(55), "type" : "wedge", "distance" : 50},
+    "PT" : {"power" : 20, "angle" : 0, "type" : "putter", "distance" : 30}
+}
