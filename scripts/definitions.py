@@ -84,13 +84,8 @@ HOLE_RADIUS = 0.2
 PERFECT_BACKSWING = 0.98
 PERFECT_SIDESPIN = 1
 MAX_WINDSPEED = 12
-<<<<<<< HEAD
 WIND_AFFECT = 3
 SIDE_SPIN_AFFECT = 0.5
-=======
-WIND_AFFECT = 2
-SIDE_SPIN_AFFECT = 1
->>>>>>> 77b07e13c4d13b2215ff2d31d2ad4364a223dee8
 GRAVITY = 9.81
 BALL_ROLLING_RESISTANCE = 0.5
 BALL_WIND_RESISTANCE = 0.5
@@ -153,3 +148,5 @@ CLUBS = {
     "SW" : {"power" : 28, "angle" : math.radians(55), "type" : "wedge", "distance" : 50},
     "PT" : {"power" : 20, "angle" : 0, "type" : "putter", "distance" : 30}
 }
+
+NETWORK_TICK_RATE = 5  # in frames, so 60 / 5 = 12 updates per second

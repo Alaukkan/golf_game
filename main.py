@@ -6,6 +6,9 @@ import scripts.definitions as defs
 from scripts.entities import Player
 from scripts.map import Map
 from scripts.utils import *
+from scripts.server import Server
+from scripts.client import Client
+from scripts.game_data import GameData
 
 START_MENU = 0
 GAME_RUNNING = 3
@@ -133,7 +136,7 @@ class Menu():
         if self.state == START_MENU:
 
             if self.pointer < 2:
-                self.game = Game(screen, self.pointer + 1)
+                self.game = Game(screen, self.pointer + 1, online=True)
                 self.state = GAME_RUNNING
 
             elif self.pointer == HIGH_SCORES:
@@ -193,7 +196,7 @@ class Menu():
 
 class Game():
 
-    def __init__(self, screen, no_players):
+    def __init__(self, screen, no_players, online=False):
         
         self.screen = screen
         self.display = pygame.Surface(defs.GAME_RESOLUTION, pygame.SRCALPHA)
@@ -271,11 +274,26 @@ class Game():
 
         self.players = []
         for i in range(no_players):
-            self.players.append(Player(self, ["PT", "SW", "9I", "7I", "5I", "3I", "3W", "1W"]))
+            self.players.append(Player(self, "host" if i == 0 else "client", ["PT", "SW", "9I", "7I", "5I", "3I", "3W", "1W"]))
         
         self.player = self.players[0]
+        self.is_my_turn = True
         self.state = defs.CHOOSE_PLAYER
         self.surface_check_timer = 0
+
+        self.network_ticks = defs.NETWORK_TICK_RATE
+
+        if online:
+            self.is_online = True
+            choice = input("Host (h) or join (j)?: ")
+            if choice == "h":
+                self.host = True
+                self.server = Server("localhost", 12345)    
+                self.server.start()
+            elif choice == "j":
+                self.host = False
+                self.client = Client("localhost", 12345)
+                self.client.connect()
 
     
     def check_input(self):
@@ -471,6 +489,11 @@ class Game():
         self.assets["hitting_meter"] = 0
         self.player = max(self.players, key=lambda x:(x.ball.distance_from_pin()))
 
+        if self.player.owner == "host":
+            self.is_my_turn = True
+        else:
+            self.is_my_turn = False
+
         if self.player.ball.in_hole:
             self.player = min(self.players, key=lambda x:(x.strokes))
             self.next_map()
@@ -504,6 +527,7 @@ class Game():
 
         self.player.scorecard.append(self.player.strokes)
 
+
     def next_map(self):
         if self.hole == 3:
             save_scores(self)
@@ -516,6 +540,7 @@ class Game():
             player.new_ball()
             player.strokes = 0
 
+
     def print_debug(self):
         if self.frame // defs.FRAME_RATE == 1:# or True:
             print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
@@ -525,6 +550,7 @@ class Game():
                     f"wind: {self.map.wind[0]}   {self.map.wind[1]} m/s\n"
                     f"state: {self.state}\n"
                     f"Timer: {self.surface_check_timer}\n")
+
 
     def update_music(self):
         if defs.BALL_MOVING > self.state > defs.CHOOSING_BACKSPIN:
@@ -536,12 +562,86 @@ class Game():
                 pygame.mixer.music.unpause()
                 self.music_playing = True
 
+
     def update_animation(self):
         self.display.blit(self.curr_animation.img(), defs.ANIMATION_POS)
         self.curr_animation.update()
 
         if self.curr_animation.done:
             self.state = defs.CHOOSE_PLAYER
+
+
+    def handle_networking(self):
+        # send or receive a single update per frame; receivers are nonblocking
+        if self.host:
+            if self.is_my_turn and self.frame % self.network_ticks == 0:
+                self.server.send_game_data(self.get_current_game_data().to_json())
+                return
+            else:
+                msg = self.server.receive_game_data()
+        else:
+            if self.is_my_turn and self.frame % self.network_ticks == 0:
+                self.client.send_game_data(self.get_current_game_data().to_json())
+                return
+            else:
+                msg = self.client.receive_game_data()
+
+        if msg is None:
+            # nothing new to process this frame
+            return
+        data = GameData(json_data=msg)
+        self.update_game_state_from_data(data)
+
+
+    def update_game_state_from_data(self, data):
+        self.state = data.game_state
+
+        if data.player_turn == 0:
+            if self.host:
+                self.is_my_turn = True
+                print("My turn")
+            else:
+                self.is_my_turn = False
+        if data.player_turn == 1:
+            if self.host:
+                self.is_my_turn = False
+            else:
+                self.is_my_turn = True
+                print("My turn")
+
+        self.player.direction = data.player_direction
+        self.player.swingspeed = data.player_swingspeed
+        self.player.club = data.player_club
+        self.player.backswing = data.player_backswing
+
+        self.player.ball.pos_x = data.ball_pos[0]
+        self.player.ball.pos_y = data.ball_pos[1]
+        self.player.ball.pos_z = data.ball_pos[2]
+
+        if data.ball_in_hole != self.player.ball.in_hole:
+            self.player.ball.in_hole = data.ball_in_hole
+            if self.player.ball.in_hole:
+                self.ball_in_hole()
+
+    def get_current_game_data(self):
+        data = GameData()
+        if self.is_my_turn:
+            data.player_turn = 0 if self.host else 1
+        else:            
+            data.player_turn = 1 if self.host else 0
+
+        data.game_state = self.state
+
+        data.player_direction = self.player.direction
+        data.player_swingspeed = self.player.swingspeed
+        data.player_club = self.player.club
+        data.player_backswing = self.player.backswing
+
+        data.ball_pos = (self.player.ball.pos_x, self.player.ball.pos_y, self.player.ball.pos_z)
+        data.ball_in_hole = self.player.ball.in_hole
+
+        return data
+
 
     def run(self):
         pygame.mixer.music.load('music/01.wav')
@@ -551,24 +651,48 @@ class Game():
 
         self.running = True
         self.frame = 0
+        if self.is_online:
+            if self.host:
+                while not self.server.wait_for_client(timeout=30):
+                    self.display.fill((0, 0, 0))
+                    text = self.font.render("Waiting for client...", False, (255, 255, 255)) 
+                    self.display.blit(text, (defs.RESOLUTION[0] * defs.PIXEL_SIZE // 2 - text.get_width() // 2, defs.RESOLUTION[1] * defs.PIXEL_SIZE // 2 - text.get_height() // 2))
+                    self.screen.blit(pygame.transform.scale(self.display, (defs.GAME_RESOLUTION[0] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1], 
+                                                                   defs.GAME_RESOLUTION[1] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1])), 
+                                                                   (defs.HUD_RESOLUTION[0] * defs.PIXEL_SIZE, 0))
+                    pygame.display.update()
+                    self.clock.tick(defs.FRAME_RATE)
 
         while self.running:
             self.display.fill((0, 0, 0))
             self.hud_display.fill((0, 0, 0))
             self.frame += 1
 
-            self.print_debug()
+            # self.print_debug()
 
             if self.state == defs.CHOOSE_PLAYER:
-                self.choose_player()
-                self.state += 1
+                if self.is_online:
+                    if self.host:
+                        self.choose_player()
+                        self.state += 1
+                        self.server.send_game_data(self.get_current_game_data().to_json())
+                    else:
+                        self.is_my_turn = False
+                        self.client.send_game_data(self.get_current_game_data().to_json())
+                        self.state += 1
+                        self.choose_player()
+
+                else:
+                    self.choose_player()
+                    self.state += 1
 
             self.offset = [self.player.ball.pos_x + defs.GAME_RESOLUTION[0] / 2, self.player.ball.pos_z + defs.GAME_RESOLUTION[1] / 2]
 
             self.map.render(self.display, self.offset)
 
-            self.player.update()
-            self.player.ball.update()
+            if not self.is_online or (self.is_online and self.is_my_turn):
+                self.player.update()
+                self.player.ball.update()
 
             self.map.render_map_objects(self.display, self.offset)
 
@@ -585,7 +709,12 @@ class Game():
 
             self.update_music()
 
-            self.check_input()
+            
+            if not self.is_online or (self.is_online and self.is_my_turn):
+                self.check_input()
+
+            if self.is_online:
+                self.handle_networking()
 
             self.screen.blit(pygame.transform.scale(self.display, (defs.GAME_RESOLUTION[0] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1], 
                                                                    defs.GAME_RESOLUTION[1] * defs.PIXEL_SIZE * defs.GAME_RESOLUTION[0] / defs.GAME_RESOLUTION[1])), 
