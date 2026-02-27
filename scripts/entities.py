@@ -15,8 +15,9 @@ class Player():
     direction_set = False
     crosshair_offset = (-3, -4)
 
-    def __init__(self, game, clubs=["PT"]):
+    def __init__(self, game, owner, clubs=["PT"]):
         self.game = game
+        self.owner = owner
         self.clubs = clubs
         self.new_ball()
         self.club = len(clubs) - 1
