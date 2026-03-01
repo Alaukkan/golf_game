@@ -45,23 +45,6 @@ class Server:
             self.client_conn = conn
             self.client_addr = addr
             self._client_connected.set()  # signal that client has connected
-            #threading.Thread(target=self._client_listener, args=(conn,), daemon=True).start()
-
-    def _client_listener(self, conn: socket.socket):
-        """Continuously read messages from the connected client."""
-        while self.running:
-            try:
-                msg = self._recv_message(conn)
-            except ConnectionResetError:
-                # remote side closed
-                print("Client disconnected")
-                break
-            if msg is None:
-                # no packet available right now
-                continue
-            # for now we simply print; higher-level code can override or poll receive_game_data
-            print(f"Received from client: {msg}")
-        conn.close()
 
     def _recv_message(self, conn: socket.socket):
         """Read a JSON object terminated by newline from the socket.
@@ -90,7 +73,15 @@ class Server:
 
     def _send_message(self, conn: socket.socket, data):
         payload = json.dumps(data).encode() + b"\n"
-        conn.sendall(payload)
+        try:
+            # use send() instead of sendall() to avoid blocking the main thread.
+            # send() returns as soon as the OS buffer accepts data, whereas
+            # sendall() blocks until all data is sent.
+            conn.send(payload)
+        except BlockingIOError:
+            # send buffer is full; data will be dropped this frame.
+            # this is preferable to blocking the whole game loop.
+            pass
 
     def send_game_data(self, data):
         """Send a JSON-serializable object to the connected client."""

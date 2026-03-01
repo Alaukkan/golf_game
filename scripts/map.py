@@ -11,7 +11,7 @@ from scripts.utils import load_image, load_hole
 class Map():
 
     def __init__(self, game, course, hole_num):
-        random.seed(time.time())
+        random.seed(game.seed + hole_num) # ensure same hole layout for both players in online mode
         self.game = game
 
         hole = load_hole(course, hole_num)

@@ -4,7 +4,7 @@ GAME_RESOLUTION = (200, 300)
 HUD_RESOLUTION = (56, 200)
 RESOLUTION = (HUD_RESOLUTION[0] + GAME_RESOLUTION[0] * GAME_RESOLUTION[0] / GAME_RESOLUTION[1], HUD_RESOLUTION[1])
 
-PIXEL_SIZE = 3
+PIXEL_SIZE = 4
 FRAME_RATE = 60
 FONT_SIZE = 8
 GAME_SPEED = 1
@@ -149,4 +149,4 @@ CLUBS = {
     "PT" : {"power" : 20, "angle" : 0, "type" : "putter", "distance" : 30}
 }
 
-NETWORK_TICK_RATE = 5  # in frames, so 60 / 5 = 12 updates per second
+NETWORK_TICK_RATE = 10  # in frames, so 60 / 10 = 6 updates per second

@@ -1,3 +1,5 @@
+import random
+
 import pygame
 import sys
 import math
@@ -267,6 +269,9 @@ class Game():
 
         self.sfx["hole"].set_volume(1)
         
+        self.seed = 152243857 #random.randint(0, 1000000)
+        random.seed(self.seed)
+
         self.course = "classic"
         self.course_pars = []
         self.hole = 1
@@ -293,7 +298,7 @@ class Game():
             elif choice == "j":
                 self.host = False
                 self.client = Client("localhost", 12345)
-                self.client.connect()
+                self.client.connect(timeout=10)
 
     
     def check_input(self):
@@ -305,6 +310,9 @@ class Game():
                 if event.key == pygame.K_ESCAPE:
                     pygame.quit()
                     sys.exit()
+            if self.is_online and not self.is_my_turn:
+                return
+            
             if not self.player.ball.is_moving:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
@@ -542,7 +550,7 @@ class Game():
 
 
     def print_debug(self):
-        if self.frame // defs.FRAME_RATE == 1:# or True:
+        if self.frame % defs.FRAME_RATE == 1:# or True:
             print(  f"player direction:  {math.degrees(self.player.direction):.2f}\n"
                     f"ball position:     {self.player.ball.pos_x:.2f} {self.player.ball.pos_y:.2f} {self.player.ball.pos_z:.2f}\n"
                     f"ball velocity:     {self.player.ball.vel_x:.2f} {self.player.ball.vel_y:.2f} {self.player.ball.vel_z:.2f}\n"
@@ -572,19 +580,28 @@ class Game():
 
 
     def handle_networking(self):
-        # send or receive a single update per frame; receivers are nonblocking
-        if self.host:
-            if self.is_my_turn and self.frame % self.network_ticks == 0:
-                self.server.send_game_data(self.get_current_game_data().to_json())
-                return
-            else:
+        msg = None
+
+        if self.is_my_turn and self.frame % self.network_ticks == 0:
+            try:
+                if self.host:
+                    self.server.send_game_data(self.get_current_game_data().to_json())
+                else:
+                    self.client.send_game_data(self.get_current_game_data().to_json())
+            except Exception as e:
+                # network errors shouldn't hang the game loop; just log for now
+                print(f"network send error: {e}")
+
+        try:
+            
+            if self.host:
                 msg = self.server.receive_game_data()
-        else:
-            if self.is_my_turn and self.frame % self.network_ticks == 0:
-                self.client.send_game_data(self.get_current_game_data().to_json())
-                return
             else:
                 msg = self.client.receive_game_data()
+        except Exception as e:
+            # treat receive issues similarly; don't let them crash the loop
+            print(f"network receive error: {e}")
+            msg = None
 
         if msg is None:
             # nothing new to process this frame
@@ -608,7 +625,10 @@ class Game():
             else:
                 self.is_my_turn = True
                 print("My turn")
+        
+        self.player = self.players[data.player_turn]
 
+        self.player.strokes = data.player_strokes
         self.player.direction = data.player_direction
         self.player.swingspeed = data.player_swingspeed
         self.player.club = data.player_club
@@ -617,6 +637,10 @@ class Game():
         self.player.ball.pos_x = data.ball_pos[0]
         self.player.ball.pos_y = data.ball_pos[1]
         self.player.ball.pos_z = data.ball_pos[2]
+
+        self.player.ball.vel_x = data.ball_vel[0]
+        self.player.ball.vel_y = data.ball_vel[1]
+        self.player.ball.vel_z = data.ball_vel[2]
 
         if data.ball_in_hole != self.player.ball.in_hole:
             self.player.ball.in_hole = data.ball_in_hole
@@ -632,12 +656,14 @@ class Game():
 
         data.game_state = self.state
 
+        data.player_strokes = self.player.strokes
         data.player_direction = self.player.direction
         data.player_swingspeed = self.player.swingspeed
         data.player_club = self.player.club
         data.player_backswing = self.player.backswing
 
         data.ball_pos = (self.player.ball.pos_x, self.player.ball.pos_y, self.player.ball.pos_z)
+        data.ball_vel = (self.player.ball.vel_x, self.player.ball.vel_y, self.player.ball.vel_z)
         data.ball_in_hole = self.player.ball.in_hole
 
         return data
@@ -653,7 +679,7 @@ class Game():
         self.frame = 0
         if self.is_online:
             if self.host:
-                while not self.server.wait_for_client(timeout=30):
+                while not self.server.wait_for_client(timeout=0.1):
                     self.display.fill((0, 0, 0))
                     text = self.font.render("Waiting for client...", False, (255, 255, 255)) 
                     self.display.blit(text, (defs.RESOLUTION[0] * defs.PIXEL_SIZE // 2 - text.get_width() // 2, defs.RESOLUTION[1] * defs.PIXEL_SIZE // 2 - text.get_height() // 2))
@@ -668,7 +694,8 @@ class Game():
             self.hud_display.fill((0, 0, 0))
             self.frame += 1
 
-            # self.print_debug()
+            
+            self.print_debug()
 
             if self.state == defs.CHOOSE_PLAYER:
                 if self.is_online:
@@ -677,10 +704,11 @@ class Game():
                         self.state += 1
                         self.server.send_game_data(self.get_current_game_data().to_json())
                     else:
-                        self.is_my_turn = False
-                        self.client.send_game_data(self.get_current_game_data().to_json())
-                        self.state += 1
-                        self.choose_player()
+                        pass  #client waits for host to choose player and send update before proceeding; prevents desyncs where both players choose at the same time
+                        #self.is_my_turn = False
+                        #self.client.send_game_data(self.get_current_game_data().to_json())
+                        #self.state += 1
+                        #self.choose_player()
 
                 else:
                     self.choose_player()
@@ -690,9 +718,9 @@ class Game():
 
             self.map.render(self.display, self.offset)
 
-            if not self.is_online or (self.is_online and self.is_my_turn):
-                self.player.update()
-                self.player.ball.update()
+            # if not self.is_online or (self.is_online and self.is_my_turn):
+            self.player.update()
+            self.player.ball.update()
 
             self.map.render_map_objects(self.display, self.offset)
 
@@ -710,8 +738,7 @@ class Game():
             self.update_music()
 
             
-            if not self.is_online or (self.is_online and self.is_my_turn):
-                self.check_input()
+            self.check_input()
 
             if self.is_online:
                 self.handle_networking()
@@ -722,6 +749,11 @@ class Game():
             self.screen.blit(pygame.transform.scale(self.hud_display, (defs.HUD_RESOLUTION[0] * defs.PIXEL_SIZE, defs.HUD_RESOLUTION[1] * defs.PIXEL_SIZE)), (0, 0))
 
             pygame.display.update()
+
+            if not self.player.turn_left and not self.player.turn_right:
+                pass
+                #pygame.event.clear()
+
             self.clock.tick(defs.FRAME_RATE)
         pygame.mixer.music.fadeout(2)
 

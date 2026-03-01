@@ -22,17 +22,28 @@ class Client:
         """
         print(f"Connecting to server at {self.server_host}:{self.server_port}")
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        if timeout is not None:
-            self.sock.settimeout(timeout)
+        # use a default 5-second timeout for initial connect so we don't hang forever
+        # if the server isn't reachable
+        if timeout is None:
+            timeout = 5.0
+        self.sock.settimeout(timeout)
         self.sock.connect((self.server_host, self.server_port))
-        # switch to nonblocking reads
+        # switch to nonblocking mode for both reads and sends
         self.sock.setblocking(False)
 
     def _send_message(self, data):
         if not self.sock:
             raise RuntimeError("Not connected to server")
         payload = json.dumps(data).encode() + b"\n"
-        self.sock.sendall(payload)
+        try:
+            # use send() instead of sendall() to avoid blocking the main thread.
+            # send() returns as soon as the OS buffer accepts data, whereas
+            # sendall() blocks until all data is sent.
+            self.sock.send(payload)
+        except BlockingIOError:
+            # send buffer is full; data will be dropped this frame.
+            # this is preferable to blocking the whole game loop.
+            pass
 
     def _recv_message(self):
         if not self.sock:
