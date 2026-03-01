@@ -74,10 +74,7 @@ class Server:
     def _send_message(self, conn: socket.socket, data):
         payload = json.dumps(data).encode() + b"\n"
         try:
-            # use send() instead of sendall() to avoid blocking the main thread.
-            # send() returns as soon as the OS buffer accepts data, whereas
-            # sendall() blocks until all data is sent.
-            conn.send(payload)
+            conn.sendall(payload)
         except BlockingIOError:
             # send buffer is full; data will be dropped this frame.
             # this is preferable to blocking the whole game loop.

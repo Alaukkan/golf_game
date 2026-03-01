@@ -36,10 +36,7 @@ class Client:
             raise RuntimeError("Not connected to server")
         payload = json.dumps(data).encode() + b"\n"
         try:
-            # use send() instead of sendall() to avoid blocking the main thread.
-            # send() returns as soon as the OS buffer accepts data, whereas
-            # sendall() blocks until all data is sent.
-            self.sock.send(payload)
+            self.sock.sendall(payload)
         except BlockingIOError:
             # send buffer is full; data will be dropped this frame.
             # this is preferable to blocking the whole game loop.
