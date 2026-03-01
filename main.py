@@ -291,13 +291,14 @@ class Game():
         if online:
             self.is_online = True
             choice = input("Host (h) or join (j)?: ")
+            ip = input("Enter IP (default localhost): ")
             if choice == "h":
                 self.host = True
-                self.server = Server("localhost", 12345)    
+                self.server = Server(ip, 12345)    
                 self.server.start()
             elif choice == "j":
                 self.host = False
-                self.client = Client("localhost", 12345)
+                self.client = Client(ip, 12345)
                 self.client.connect(timeout=10)
 
     
